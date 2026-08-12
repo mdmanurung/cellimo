@@ -84,6 +84,30 @@ def test_assert_writable_refuses_a_symlink_to_the_source(project: Project) -> No
         project.assert_writable("artifacts/sneaky.h5ad")
 
 
+@pytest.mark.parametrize("source_present", [True, False], ids=["present", "missing"])
+@pytest.mark.parametrize("spelling", ["relative", "absolute", "dotted"])
+def test_assert_writable_refuses_the_source_however_it_is_spelled(
+    project: Project, source_present: bool, spelling: str
+) -> None:
+    """Characterisation: every route to the source is refused, existing or not.
+
+    The guard used to compare inodes when the source existed and raw paths when
+    it did not. Both cases are now one `same_file` call, which already falls
+    back to canonicalised-path equality — these six combinations pin the
+    behaviour so that collapse cannot change it unnoticed.
+    """
+    relative = project.source_path.relative_to(project.root)
+    if not source_present:
+        project.source_path.unlink()
+    target = {
+        "relative": str(relative),
+        "absolute": str(project.source_path),
+        "dotted": f"artifacts/../{relative}",
+    }[spelling]
+    with pytest.raises(SourceImmutabilityError):
+        project.assert_writable(target)
+
+
 def test_assert_writable_refuses_paths_outside_the_project(project: Project) -> None:
     with pytest.raises(PathSafetyError):
         project.assert_writable("../escape.h5ad")

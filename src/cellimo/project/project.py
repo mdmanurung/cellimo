@@ -307,14 +307,17 @@ class Project:
         """
         resolved = self.resolve(target, what="output path")
         source = self.source_path
-        if source.exists() and resolved.exists() and same_file(resolved, source):
+        # One comparison, not two. ``same_file`` uses st_dev/st_ino when both
+        # paths exist and falls back to canonicalised-path equality when either
+        # does not, so "the source is missing" needs no branch of its own — the
+        # one that used to be here compared paths with ``==``, which is a weaker
+        # spelling of the fallback already inside ``same_file``. No write was
+        # ever demonstrated slipping through it; this is a simplification, not a
+        # repair.
+        if same_file(resolved, source):
             raise SourceImmutabilityError(
                 f"refusing to write {target}: it is the registered source dataset "
                 f"({source}), which is immutable"
-            )
-        if not source.exists() and resolved == source:
-            raise SourceImmutabilityError(
-                f"refusing to write {target}: it is the registered source path"
             )
         return resolved
 
