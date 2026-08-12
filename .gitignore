@@ -25,3 +25,6 @@ htmlcov/
 # Sphinx documentation build and the MyST-NB execution cache.
 docs/_build/
 docs/.jupyter_cache/
+
+# marimo writes a session cache beside notebooks it executes.
+__marimo__/
