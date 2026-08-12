@@ -20,7 +20,6 @@ from pathlib import Path
 
 from cellimo.artifacts.descriptor import ArtifactDescriptor
 from cellimo.config import DesignSection
-from cellimo.provenance.records import StatisticsRecord
 from cellimo.schema import INTEGRATED_REPRESENTATIONS
 from cellimo.util.hashing import hash_file, short_hash
 from cellimo.validation.engine import Finding, ValidationContext, register
@@ -106,22 +105,6 @@ def _is_substantive(justification: str) -> bool:
     if text.lower().strip(".!- ") in _NON_ANSWERS:
         return False
     return len(text) >= _MIN_JUSTIFICATION_CHARS and len(text.split()) >= _MIN_JUSTIFICATION_WORDS
-
-
-def _effective_representation(
-    context: ValidationContext, record: StatisticsRecord
-) -> tuple[str, str | None]:
-    """What the analysis *actually* consumed, and the artifact's own claim.
-
-    The statistics record's ``input_representation`` is written by whoever
-    recorded the analysis. The artifact descriptor's ``representation`` was
-    pinned when the file was hashed. When they disagree, the artifact wins —
-    otherwise relabelling the record would be enough to walk past C006.
-    """
-    artifact = context.by_sha.get(record.input_artifact_sha256)
-    if artifact is None:
-        return record.input_representation, None
-    return artifact.representation, artifact.representation
 
 
 # ---------------------------------------------------------------------------
@@ -824,14 +807,20 @@ def check_de_on_integrated(context: ValidationContext) -> list[Finding]:
     """
     findings: list[Finding] = []
     for record in context.confirmatory:
-        effective, artifact_says = _effective_representation(context, record)
+        # The artifact's representation was pinned when its bytes were hashed;
+        # the record's is written by whoever recorded the analysis. Where they
+        # disagree the artifact wins, or relabelling the record would be enough
+        # to walk past this check.
+        artifact = context.by_sha.get(record.input_artifact_sha256)
+        claimed = record.input_representation
+        actual = artifact.representation if artifact is not None else claimed
         laundered = (
-            artifact_says in INTEGRATED_REPRESENTATIONS
-            and record.input_representation not in INTEGRATED_REPRESENTATIONS
+            actual in INTEGRATED_REPRESENTATIONS
+            and claimed not in INTEGRATED_REPRESENTATIONS
         )
         if (
-            artifact_says is not None
-            and artifact_says != record.input_representation
+            artifact is not None
+            and actual != claimed
             and record.aggregation == "none"
             and not laundered
         ):
@@ -844,15 +833,15 @@ def check_de_on_integrated(context: ValidationContext) -> list[Finding]:
                     title="Analysis and artifact disagree about the input",
                     detail=(
                         f"{record.name!r} records input_representation="
-                        f"{record.input_representation!r} with aggregation='none', but "
+                        f"{claimed!r} with aggregation='none', but "
                         f"artifact {short_hash(record.input_artifact_sha256)} was "
-                        f"registered as {artifact_says!r}"
+                        f"registered as {actual!r}"
                     ),
                     location=_label(record.record_id, record.name),
                     remedy="Correct whichever record is wrong.",
                 )
             )
-        if effective not in INTEGRATED_REPRESENTATIONS:
+        if actual not in INTEGRATED_REPRESENTATIONS:
             continue
         if _is_substantive(record.justification):
             findings.append(
@@ -861,7 +850,7 @@ def check_de_on_integrated(context: ValidationContext) -> list[Finding]:
                     severity="warning",
                     title="Confirmatory analysis on corrected values, with justification",
                     detail=(
-                        f"{record.name!r} consumes {effective!r}; "
+                        f"{record.name!r} consumes {actual!r}; "
                         f"justification: {record.justification}"
                     ),
                     location=_label(record.record_id, record.name),
@@ -877,12 +866,12 @@ def check_de_on_integrated(context: ValidationContext) -> list[Finding]:
                 title="Integration-corrected values were used as confirmatory input",
                 detail=(
                     f"{record.name!r} ({record.test}) is a confirmatory analysis "
-                    f"consuming {effective!r}. Batch correction distorts the expression "
+                    f"consuming {actual!r}. Batch correction distorts the expression "
                     f"values themselves, so p-values computed on them do not mean what "
                     f"they appear to."
                     + (
-                        f" The record claims {record.input_representation!r}, but the "
-                        f"artifact it names was registered as {artifact_says!r} — the "
+                        f" The record claims {claimed!r}, but the "
+                        f"artifact it names was registered as {actual!r} — the "
                         f"artifact's own record is what counts here."
                         if laundered
                         else ""

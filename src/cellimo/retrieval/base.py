@@ -64,8 +64,6 @@ class KnowledgeIndex(ABC):
     def status(self) -> IndexStatus:
         """Describe what is installed, including what is missing."""
 
-    def close(self) -> None:  # pragma: no cover - backends override when needed
-        """Release any held resources."""
 
 
 class MissingIndex(KnowledgeIndex):

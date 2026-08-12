@@ -370,8 +370,6 @@ def _propose_design(
                 confidence = "high"
             elif column.is_numeric and field in {"donor", "sample", "batch", "study"}:
                 confidence = "low"
-            elif column.cardinality == "low":
-                confidence = "medium"
             else:
                 confidence = "medium"
             candidate = DesignCandidate(

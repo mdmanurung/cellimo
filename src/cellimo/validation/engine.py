@@ -98,17 +98,6 @@ class ValidationContext:
         candidates = self.artifacts_at("source")
         return candidates[0] if candidates else None
 
-    def n_samples(self) -> int:
-        """How many samples the audit found, or 0 when unknown.
-
-        Used to decide whether stratified QC is even meaningful.
-        """
-        for record in self.decisions:
-            value = record.parameters.get("n_samples")
-            if isinstance(value, int):
-                return value
-        return 0
-
 
 class ValidationReport(BaseModel):
     """The result of one ``cellimo check`` run."""
