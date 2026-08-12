@@ -159,7 +159,10 @@ class Project:
             ),
             source=SourceSection(
                 path=cls._source_reference(root_path, source),
-                sha256=hash_file(source),
+                # Filled in from the registration below, which hashes the
+                # file as part of its own contract. Hashing here as well
+                # would read a large dataset twice for no gain.
+                sha256="",
                 bytes=source.stat().st_size,
                 format=source.suffix.lstrip(".").lower() or "unknown",
             ),
@@ -198,7 +201,11 @@ class Project:
 
         project = cls(root_path, config)
         project.store.ensure_layout()
-        project.register_source()
+        registered = project.register_source()
+        project.config.source = project.config.source.model_copy(
+            update={"sha256": registered.sha256}
+        )
+        project.save()
         project.capture_environment()
         project.record_decision(
             kind="note",
