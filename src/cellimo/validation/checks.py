@@ -954,7 +954,7 @@ def check_qc_stratification(context: ValidationContext) -> list[Finding]:
                 continue
             if exclusion.by_sample or exclusion.stratified_by:
                 continue
-            if exclusion.pooling_justification.strip():
+            if _is_substantive(exclusion.pooling_justification):
                 continue
             findings.append(
                 Finding(
