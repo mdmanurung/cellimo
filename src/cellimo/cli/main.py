@@ -19,6 +19,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -353,15 +354,7 @@ def check(path: Path | None, as_json: bool, only: str) -> None:
         payload["counts"] = report.counts()
         # `passed` is the provenance verdict; `ok` is what the exit code means.
         payload["passed"] = report.passed
-        payload["ok"] = (
-            report.passed
-            and not notebook_missing
-            and not (
-                notebook_result is not None
-                and notebook_result.ran
-                and not notebook_result.ok
-            )
-        )
+        payload["ok"] = not _failed(report, notebook_result, notebook_missing)
         payload["notebook"] = (
             notebook_result.to_dict()
             if notebook_result
@@ -394,12 +387,21 @@ def check(path: Path | None, as_json: bool, only: str) -> None:
                     f"{len(notebook_result.issues)} issue(s)"
                 )
 
-    failed = (
+    raise SystemExit(1 if _failed(report, notebook_result, notebook_missing) else 0)
+
+
+
+def _failed(report: Any, notebook: Any, notebook_missing: bool) -> bool:
+    """What `cellimo check` calls a failure.
+
+    Written once: the JSON payload's `ok` field and the exit code have to agree,
+    and they did not when this predicate was spelled out twice.
+    """
+    return (
         not report.passed
         or notebook_missing
-        or (notebook_result is not None and notebook_result.ran and not notebook_result.ok)
+        or (notebook is not None and notebook.ran and not notebook.ok)
     )
-    raise SystemExit(1 if failed else 0)
 
 
 # ---------------------------------------------------------------------------
