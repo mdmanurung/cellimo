@@ -5,7 +5,7 @@ description: >-
   expression, differential abundance, effect sizes. Use when the user asks for
   DE, marker significance, condition comparisons, p-values, or when cellimo
   check reports C004 (cells as replicates), C005 (too few replicates), C006 (DE
-  on integrated values) or C012 (not sample-aware).
+  on integrated values) or C012 (a declared unit that was never aggregated to).
 allowed-tools: Bash(cellimo *), Read, Skill
 ---
 
@@ -88,6 +88,11 @@ none of them is the test's name:
   default (`unknown`) with `aggregation="none"` is an error — the record has to
   *positively state* what the biological replicate was. Calling your test
   something the validator does not recognise will not get you past this.
+- **`aggregation`** must say how you reached that unit. Declaring
+  `unit_level="donor"` while leaving `aggregation="none"` describes a
+  cell-level test wearing a donor-level label: it satisfies C004 and then
+  fails C012, which exists for exactly that record. Set it to `pseudobulk`,
+  `mixed_model` or `meta_analysis` — whichever you actually did.
 - **`n_units`** is donors per group, not cells. Putting cell counts there is the
   single most consequential thing you can get wrong in this whole system; cell
   counts go in `n_cells`.

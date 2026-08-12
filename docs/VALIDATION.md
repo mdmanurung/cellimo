@@ -70,7 +70,7 @@ whoever can write the file can also set its mtime.
 | `C009` | Integration was justified, not reflexive |
 | `C010` | Filtering stages record their exclusions |
 | `C011` | Confirmatory analysis names its input artifact |
-| `C012` | Confirmatory analysis is sample-aware |
+| `C012` | A declared replicate unit was actually aggregated to |
 | `C013` | Analyses cite the references that informed them |
 
 ## The rules that matter most
@@ -97,6 +97,23 @@ is marker discovery, not a condition comparison; record it as
 `mode="exploratory"` and this rule does not apply. That exemption is deliberate:
 a rule that fires on routine marker discovery would be switched off within a
 week.
+
+### C012 — the declared unit is the unit that was computed
+
+C004 accepts a record the moment it names `sample` or `donor` as its
+`unit_level`. Naming a unit is not the same as computing at it: a record can
+declare `unit_level="donor"` and still record `aggregation="none"`, which is a
+cell-level test wearing a donor-level label. C012 warns on exactly that, and on
+nothing else.
+
+The two checks **partition** the confirmatory records — C004 owns those that
+declare no unit, C012 owns those that declare one without aggregating to it —
+so no record is ever reported by both. An earlier C012 keyed on the test name
+and was a strict subset of C004, restating every C004 error as a weaker
+warning about the same record.
+
+Silenced by a substantive `justification`, on the same terms as C004: a
+single character, "n/a" or "see notebook" will not do it.
 
 *Escape hatch*: a non-empty `justification` downgrades it to a warning. Single-
 donor perturbation screens, where the well is genuinely the experimental unit,
