@@ -36,7 +36,7 @@ assumes you can run code in the user's kernel.
 | The user wants | Load |
 | --- | --- |
 | to start on a new dataset | `project-audit` |
-| to continue where they left off | read `provenance/manifest.json` first, then the stage's skill |
+| to continue where they left off | `cellimo check --json` first — it refreshes `provenance/manifest.json`, which is otherwise as old as the last registered artifact — then read the manifest, then the stage's skill |
 | quality control, filtering, doublets | `quality-control` |
 | differential expression, abundance, any p-value | `statistics` |
 | a critique of what has been done | `notebook-review` |
@@ -50,8 +50,10 @@ and say what you are leaving for later.
 
 Repeat, one objective at a time:
 
-1. **Inspect** — current project state (`cellimo check --json`,
-   `provenance/manifest.json`) and live notebook state (marimo-pair).
+1. **Inspect** — current project state (`cellimo check --json`, *then*
+   `provenance/manifest.json`: check regenerates it, and reading it first
+   can show you a session that ended before the work you are resuming) and
+   live notebook state (marimo-pair).
 2. **Define one scientific objective.** Say it out loud in a sentence. If you
    cannot, you are about to write code without knowing why.
 3. **Retrieve** — `search_workflows` for how this step is really done, then

@@ -135,7 +135,7 @@ seed. `provenance/` is the append-only history:
 | `references.jsonl` | one record per consulted reference, with content hash |
 | `statistics.jsonl` | one record per comparison, with its unit of replication |
 | `environment.json` | interpreter, platform, package versions, seed |
-| `manifest.json` | rolled up from the above; always rebuildable |
+| `manifest.json` | rolled up from the above; rebuilt by `cellimo check` and by `init`, `record_design` and `register_artifact` |
 | `runs/` | one file per Cellimo command invocation |
 
 Record identifiers are content-derived, so writing the same record twice yields

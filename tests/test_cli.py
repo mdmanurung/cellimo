@@ -9,6 +9,7 @@ import pytest
 from click.testing import CliRunner
 
 from cellimo.cli.main import cli
+from cellimo.project.project import Project
 
 
 @pytest.fixture
@@ -102,6 +103,45 @@ def test_check_only_rejects_an_unknown_code(runner: CliRunner, project) -> None:
     result = runner.invoke(cli, ["check", str(project.root), "--only", "BOGUS999"])
     assert result.exit_code != 0
     assert "unknown check code" in result.output
+
+
+def test_check_refreshes_a_stale_manifest(runner: CliRunner, project) -> None:
+    """The agent's inspect step must not hand it a manifest from before the work.
+
+    Only three of nine mutating paths rewrite `manifest.json`, and recording
+    statistics is not one of them — so an interrupted session leaves the file
+    claiming nothing was analysed, which is precisely what the `cellimo` and
+    `notebook-review` skills tell the agent to read on resume.
+    """
+    project.record_statistics(name="marker ranking", test="wilcoxon", mode="exploratory")
+    project.record_reference(reference_id="notebook:x", title="X", used_for="qc")
+    stale = project.store.manifest()
+    assert stale is not None
+    assert stale.counts["statistics"] == 0, "precondition: the manifest is stale"
+
+    result = runner.invoke(cli, ["check", str(project.root), "--json"])
+    assert json.loads(result.output)["manifest_refreshed"] is True
+
+    fresh = project.store.manifest()
+    assert fresh is not None
+    assert fresh.counts["statistics"] == 1
+    assert fresh.counts["references"] == 1
+
+
+def test_check_still_runs_when_the_manifest_cannot_be_written(
+    runner: CliRunner, project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A project you cannot write to is still a project you can check."""
+
+    def refuse(self) -> Path:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(Project, "write_manifest", refuse)
+    result = runner.invoke(cli, ["check", str(project.root), "--json"])
+    payload = json.loads(result.output)
+    assert payload["manifest_refreshed"] is False
+    assert "read-only" in payload["manifest_error"]
+    assert payload["checks_run"] > 0
 
 
 def test_check_reports_a_missing_notebook(runner: CliRunner, project) -> None:

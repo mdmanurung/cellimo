@@ -327,6 +327,22 @@ def check(path: Path | None, as_json: bool, only: str) -> None:
     target = Path(path) if path is not None else Path.cwd()
     notebook = target if target.is_file() and target.suffix == ".py" else None
     project = Project.open(target)
+    # `manifest.json` is derived state that only three of nine mutating paths
+    # refresh, so a session interrupted after recording statistics leaves it
+    # stale — which is exactly the state an agent resuming work reads it in,
+    # since both the `cellimo` and `notebook-review` skills point at the file.
+    # Refreshing per mutation was measured at 12x the cost of a bare append and
+    # is quadratic over a session, because every rebuild re-reads every log.
+    # Doing it here instead costs one JSON write on a command that has already
+    # read all four logs, and this is the inspect step the agent runs first.
+    manifest_error = ""
+    try:
+        project.write_manifest()
+    except OSError as exc:
+        # A project that cannot be written is still a project that can be
+        # checked. Say so rather than turning a read-only directory into a
+        # crash, and rather than staying silent about a stale manifest.
+        manifest_error = f"{type(exc).__name__}: {exc}"
     codes = [item.strip() for item in only.split(",") if item.strip()] or None
     if codes:
         from cellimo.validation.engine import run_checks
@@ -355,6 +371,9 @@ def check(path: Path | None, as_json: bool, only: str) -> None:
         # `passed` is the provenance verdict; `ok` is what the exit code means.
         payload["passed"] = report.passed
         payload["ok"] = not _failed(report, notebook_result, notebook_missing)
+        payload["manifest_refreshed"] = not manifest_error
+        if manifest_error:
+            payload["manifest_error"] = manifest_error
         payload["notebook"] = (
             notebook_result.to_dict()
             if notebook_result
@@ -371,6 +390,8 @@ def check(path: Path | None, as_json: bool, only: str) -> None:
         click.echo(json.dumps(payload, indent=2))
     else:
         click.echo(report.to_text())
+        if manifest_error:
+            click.echo(f"\nmanifest: not refreshed — {manifest_error}", err=True)
         if notebook_missing:
             click.echo(
                 f"\nnotebook: {notebook_path} is missing — regenerate it with "

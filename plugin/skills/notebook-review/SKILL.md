@@ -22,7 +22,7 @@ structural and mechanical problems; your job is what it cannot see.
 ## 2. Read the provenance
 
 ```
-provenance/manifest.json      current state, artifacts, design
+provenance/manifest.json      current state, artifacts, design (step 1 refreshed it)
 provenance/artifacts.jsonl    lineage, representations, exclusions
 provenance/decisions.jsonl    what was chosen and why
 provenance/statistics.jsonl   every comparison and its unit of replication
