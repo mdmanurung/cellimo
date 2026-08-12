@@ -455,7 +455,12 @@ class Project:
             updates["approved_at"] = None
 
         self.config.design = DesignSection.model_validate({**design.model_dump(), **updates})
-        self.save()
+        # Log before saving. Either order can be interrupted, but only one is
+        # interrupted safely: a decision with no approved config blocks
+        # confirmatory analysis, while an approved config with no decision is
+        # the state C002 downgrades to a *warning* — so a crash in that window
+        # left a project that `cellimo check` passed. Of the nine mutating paths
+        # here this is the only one whose missing record any check reads.
         self.record_decision(
             kind="design",
             summary=(
@@ -482,6 +487,7 @@ class Project:
             # decision log saying a human had approved it.
             actor=actor,
         )
+        self.save()
         self.write_manifest()
         return self.config.design
 

@@ -241,6 +241,34 @@ def test_record_ids_ignore_when_the_record_was_written(project: Project) -> None
     assert second.record_id == first.record_id
 
 
+def test_a_crash_while_logging_an_approval_leaves_it_unapproved(
+    project: Project, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Interrupting `approve_design` must not leave an approval nobody logged.
+
+    C002 treats "cellimo.yaml says approved, decisions.jsonl has no approval"
+    as a warning, so with the config saved first a crash in that window
+    produced a project that `cellimo check` passed and that would accept
+    confirmatory analysis. The write order is the whole fix.
+    """
+    project.record_design(donor="participant_id", condition="condition")
+
+    def die(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("kernel died mid-approval")
+
+    monkeypatch.setattr(Project, "record_decision", die)
+    with pytest.raises(RuntimeError):
+        project.approve_design(approved_by="a human", actor="user")
+
+    reloaded = Project.open(project.root)
+    assert not reloaded.config.design.is_approved()
+    # And the consequence that matters: inference is still blocked.
+    with pytest.raises(DesignError, match="not approved"):
+        reloaded.record_statistics(
+            name="stim vs ctrl", test="pseudobulk_deseq2", mode="confirmatory"
+        )
+
+
 def test_authorize_autonomous_is_recorded(project: Project) -> None:
     project.authorize_autonomous("running unattended overnight")
     assert project.config.policies.autonomous_authorization is True
