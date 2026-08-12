@@ -114,19 +114,13 @@ class ProvenanceStore:
         return descriptor
 
     def append_decision(self, record: DecisionRecord) -> DecisionRecord:
-        record = self._with_id(record, "decision")
-        append_jsonl(self.decisions_path, record.model_dump(mode="json"))
-        return record
+        return self._append(self.decisions_path, record, "decision")
 
     def append_reference(self, record: ReferenceRecord) -> ReferenceRecord:
-        record = self._with_id(record, "reference")
-        append_jsonl(self.references_path, record.model_dump(mode="json"))
-        return record
+        return self._append(self.references_path, record, "reference")
 
     def append_statistics(self, record: StatisticsRecord) -> StatisticsRecord:
-        record = self._with_id(record, "statistics")
-        append_jsonl(self.statistics_path, record.model_dump(mode="json"))
-        return record
+        return self._append(self.statistics_path, record, "statistics")
 
     def write_environment(self, record: EnvironmentRecord) -> Path:
         return atomic_write_json(self.environment_path, record.model_dump(mode="json"))
@@ -139,11 +133,24 @@ class ProvenanceStore:
 
     @staticmethod
     def _with_id(record: Any, prefix: str) -> Any:
+        """Give a record a content-derived id.
+
+        ``created`` is excluded along with ``record_id``: a timestamp is not
+        content, and leaving it in meant two identical records written a
+        second apart got different ids — which is the opposite of what this
+        function is for.
+        """
         if record.record_id:
             return record
         payload = record.model_dump(mode="json")
-        payload.pop("record_id", None)
+        for volatile in ("record_id", "created"):
+            payload.pop(volatile, None)
         return record.model_copy(update={"record_id": make_record_id(prefix, payload)})
+
+    def _append(self, path: Path, record: Any, prefix: str) -> Any:
+        record = self._with_id(record, prefix)
+        append_jsonl(path, record.model_dump(mode="json"))
+        return record
 
     # -- reads -------------------------------------------------------------
 

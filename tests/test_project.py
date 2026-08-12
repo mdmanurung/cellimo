@@ -16,6 +16,7 @@ from cellimo.errors import (
     SourceImmutabilityError,
 )
 from cellimo.project.project import Project
+from cellimo.provenance.records import ReferenceRecord
 
 
 def test_init_creates_the_documented_scaffold(project: Project) -> None:
@@ -221,12 +222,23 @@ def test_stage_requires_something_to_be_written(project: Project) -> None:
         stage.output("artifacts/never_written.h5ad")
 
 
-def test_record_ids_are_content_derived(project: Project) -> None:
-    first = project.record_reference(reference_id="notebook:x", title="X", used_for="qc")
-    second = project.record_reference(reference_id="notebook:x", title="X", used_for="qc")
-    # Same content in the same second yields the same id rather than a duplicate.
+def test_record_ids_ignore_when_the_record_was_written(project: Project) -> None:
+    """Two identical records written years apart must collide.
+
+    The timestamps differ deliberately: an id that folded ``created`` in would
+    pass a same-second test while still failing the guarantee it documents.
+    """
+
+    def reference(created: str) -> ReferenceRecord:
+        return ReferenceRecord(
+            reference_id="notebook:x", title="X", used_for="qc", created=created
+        )
+
+    first = project.store.append_reference(reference("2026-01-01T00:00:00+00:00"))
+    second = project.store.append_reference(reference("2030-06-15T12:34:56+00:00"))
+
     assert first.record_id.startswith("reference:")
-    assert second.reference_id == first.reference_id
+    assert second.record_id == first.record_id
 
 
 def test_authorize_autonomous_is_recorded(project: Project) -> None:
