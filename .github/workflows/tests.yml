@@ -22,6 +22,26 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Static analysis runs once, on the version it is configured for. `mypy`'s
+  # `python_version` in pyproject.toml is 3.11 — the project's floor — and
+  # running it against a 3.12 interpreter makes it parse that interpreter's
+  # stubs under 3.11 rules, which fails inside numpy rather than inside this
+  # codebase. Two runs of the same static check would add noise, not coverage.
+  static:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: python -m pip install --upgrade pip && python -m pip install '.[dev]'
+      - name: Lint
+        run: ruff check .
+      - name: Type check
+        run: mypy
+
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -31,20 +51,10 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v7
-
       - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-
-      - name: Install
-        run: python -m pip install --upgrade pip && python -m pip install '.[dev]'
-
-      - name: Lint
-        run: ruff check .
-
-      - name: Type check
-        run: mypy
-
+      - run: python -m pip install --upgrade pip && python -m pip install '.[dev]'
       - name: Test
         run: pytest -q
