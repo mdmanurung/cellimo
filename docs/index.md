@@ -84,6 +84,7 @@ See [](ARCHITECTURE.md#two-runtimes).
 :maxdepth: 2
 
 tutorial
+playground
 MIGRATION
 ```
 
