@@ -1,10 +1,16 @@
 """Sphinx configuration for the Cellimo documentation site.
 
 The site is built with MyST-NB so that pages can be *executed*, not just
-rendered. `tutorial.md` runs the real Cellimo API against a dataset it
-generates itself, and `nb_execution_raise_on_error` makes a failure there fail
-the build — so the tutorial cannot drift away from the code the way a
-hand-transcribed one does.
+rendered. `playground.md` executes a Marimo notebook at build time through the
+islands directive, and `nb_execution_raise_on_error` fails the build when a cell
+raises.
+
+`tutorial.ipynb` is the exception: it downloads a real published dataset and
+runs a full analysis, so it is executed **locally** and its outputs are
+committed. `nb_execution_excludepatterns` keeps the build from re-running it —
+which also means the build no longer verifies it. `tests.yml` covers the API
+instead, and `tutorial-refresh.yml` re-executes the notebook on a schedule to
+catch it going stale.
 
 Build it with::
 
@@ -69,6 +75,11 @@ myst_heading_anchors = 3
 #: "cache" executes a page once and reuses the result until its source changes,
 #: so an unchanged tutorial does not re-run on every build.
 nb_execution_mode = "cache"
+#: The tutorial is executed locally against a real dataset — see the module
+#: docstring. Its committed outputs are rendered as-is. Without this the build
+#: would try to run it against the `docs` extra, which deliberately carries
+#: neither scanpy nor pertpy, and fail.
+nb_execution_excludepatterns = ["tutorial.ipynb"]
 nb_execution_timeout = 300
 #: The point of executing the docs is to find out when they are wrong.
 nb_execution_raise_on_error = True

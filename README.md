@@ -339,13 +339,22 @@ pip install -e '.[docs]'
 make -C docs html          # -> docs/_build/html/index.html
 ```
 
-`docs/tutorial.md` is an *executed* notebook: it builds a six-donor dataset,
-runs a project end to end and prints the validator's real output, including the
-`C004` error raised by a deliberately pseudoreplicated comparison. The build
-runs with `-W` and `nb_execution_raise_on_error`, so if the tutorial stops
-matching the code, the documentation stops building. Nothing enforces that
-automatically yet — there is no CI in this repository — so run it before a
-release.
+`docs/tutorial.ipynb` is a real analysis of a published dataset — Kang et al.
+2018, eight lupus donors, control vs interferon-β — taken from raw counts to
+pseudobulk differential expression, and ending with `cellimo check` refusing the
+same comparison run per cell.
+
+Because it downloads real data and runs a full analysis, it is executed
+**locally** and its outputs are committed:
+
+```bash
+pip install -e '.[docs,docs-data]'   # docs-data adds pertpy, scanpy, leidenalg
+make -C docs execute                 # re-runs the tutorial in place
+```
+
+`docs-data` is heavy (pertpy pulls jax) and is deliberately kept out of `docs`,
+so the published build stays light. `.github/workflows/tutorial-refresh.yml`
+re-executes the notebook monthly and reports if its output changed.
 
 Note that the tutorial is a Jupyter notebook while your analysis is a Marimo
 one. MyST-NB cannot execute a Marimo notebook, so the tutorial drives the same

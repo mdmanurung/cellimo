@@ -28,3 +28,8 @@ docs/.jupyter_cache/
 
 # marimo writes a session cache beside notebooks it executes.
 __marimo__/
+
+# Datasets downloaded by the tutorial. Pinned to ~/.cache by the notebook;
+# these are the fallbacks if it is ever run without that pin.
+/data/
+docs/data/

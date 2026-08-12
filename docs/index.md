@@ -14,9 +14,9 @@ the system, and it is the one you are already using.
 :link: tutorial
 :link-type: doc
 
-**Tutorial: a project that can defend itself** — build a project end to end,
-then watch the validator catch a pseudoreplicated comparison. Every cell on
-that page ran when this site was built.
+**Tutorial: an analysis that can defend itself** — a real published
+experiment (Kang et al. 2018: eight donors, control vs interferon-β) taken end
+to end, ending with the validator refusing the same comparison run per cell.
 :::
 
 ## What it actually does

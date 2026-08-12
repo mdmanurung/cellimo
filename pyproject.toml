@@ -93,6 +93,21 @@ docs = [
   "pandas>=2.0",
   "scipy>=1.11",
 ]
+# Everything docs/tutorial.ipynb needs to RE-EXECUTE against the real Kang 2018
+# dataset. Deliberately not part of `docs`: the published build renders the
+# committed outputs and must stay light, while this pulls jax (via pertpy) and
+# the whole scanpy stack. Used by `make -C docs execute` and by the monthly
+# tutorial-refresh workflow, never by the Pages build.
+docs-data = [
+  "pertpy>=1.0",
+  "scanpy>=1.10",
+  "leidenalg>=0.10",
+  "igraph>=0.11",
+  "matplotlib>=3.9",
+  "pydeseq2>=0.5",
+  "nbconvert>=7.16",
+  "ipykernel>=6.29",
+]
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",

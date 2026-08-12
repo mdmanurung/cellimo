@@ -12,7 +12,7 @@ SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = .
 BUILDDIR      = _build
 
-.PHONY: help html clean linkcheck
+.PHONY: help html clean linkcheck execute
 
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS)
@@ -23,6 +23,14 @@ html:
 
 linkcheck:
 	@$(SPHINXBUILD) -b linkcheck "$(SOURCEDIR)" "$(BUILDDIR)/linkcheck" $(SPHINXOPTS)
+
+# Re-run the tutorial against the real Kang 2018 dataset and commit the result.
+# Needs the heavy extra: pip install -e '.[docs,docs-data]'
+# Takes about six minutes; the dataset is cached after the first download.
+execute:
+	jupyter nbconvert --to notebook --execute --inplace \
+		--ExecutePreprocessor.timeout=2400 tutorial.ipynb
+	@echo "\ntutorial.ipynb re-executed — review the diff before committing."
 
 clean:
 	rm -rf "$(BUILDDIR)"

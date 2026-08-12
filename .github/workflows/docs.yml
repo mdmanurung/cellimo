@@ -1,11 +1,12 @@
 # Build the documentation site and publish it to GitHub Pages.
 #
-# The build runs with `-W`, and `docs/tutorial.md` executes the real Cellimo API
-# through MyST-NB while `docs/playground.md` executes a Marimo notebook through
-# the islands directive. A cell that raises fails the build. That makes this
-# workflow the only automated check in the repository that the documented API
-# still behaves as documented — pull requests build without deploying, so the
-# breakage surfaces before it merges.
+# The build runs with `-W`, and `docs/playground.md` executes a Marimo notebook
+# through the islands directive, so a raising cell fails the build. Pull requests
+# build without deploying, so breakage surfaces before it merges.
+#
+# `docs/tutorial.ipynb` is NOT executed here — it needs a real dataset and the
+# heavy `docs-data` extra, so it runs locally with its outputs committed. The API
+# it demonstrates is gated by tests.yml instead.
 name: docs
 
 on:
