@@ -86,6 +86,8 @@ docs = [
   "sphinx-design>=0.6",
   "sphinxcontrib-mermaid>=1.0",
   "ipykernel>=6.29",
+  # docs/_ext/marimo_island.py executes the playground notebook at build time.
+  "marimo>=0.23.8",
   "anndata>=0.10",
   "numpy>=1.26",
   "pandas>=2.0",
@@ -166,6 +168,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "src/cellimo/templates/*.py" = ["ALL"]      # generated Marimo notebook template
+"docs/notebooks/*.py" = ["ALL"]             # Marimo notebooks: a bare expression is the output
 "tests/*" = ["PLR2004", "PLC0415"]
 
 [tool.mypy]

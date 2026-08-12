@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "_ext"))
 
 from cellimo import __version__ as _cellimo_version
 
@@ -40,6 +41,7 @@ extensions = [
     "sphinx_copybutton",
     "sphinx_design",
     "sphinxcontrib.mermaid",
+    "marimo_island",
 ]
 
 # Intersphinx is deliberately absent. It resolves inventories over the network
