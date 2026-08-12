@@ -21,3 +21,7 @@ htmlcov/
 
 # Local Claude Code state and review artifacts.
 .claude/
+
+# Sphinx documentation build and the MyST-NB execution cache.
+docs/_build/
+docs/.jupyter_cache/

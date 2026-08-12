@@ -74,6 +74,23 @@ spatial = [
 multimodal = [
   "mudata>=0.3",
 ]
+# The documentation site. Sphinx + MyST-NB, so `docs/tutorial.md` is *executed*
+# at build time against the real API — which is why the scientific packages the
+# tutorial needs are here too. The theme pins pydata-sphinx-theme, which caps
+# Sphinx below 10.
+docs = [
+  "sphinx>=8.2,<10",
+  "myst-nb>=1.2",
+  "sphinx-book-theme>=1.1",
+  "sphinx-copybutton>=0.5",
+  "sphinx-design>=0.6",
+  "sphinxcontrib-mermaid>=1.0",
+  "ipykernel>=6.29",
+  "anndata>=0.10",
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "scipy>=1.11",
+]
 dev = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
