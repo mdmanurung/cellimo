@@ -1,0 +1,32 @@
+{
+  "name": "cellimo",
+  "owner": {
+    "name": "Cellimo contributors",
+    "url": "https://github.com/mdmanurung/cellimo"
+  },
+  "metadata": {
+    "description": "Agentic, reproducible single-cell analysis in Marimo",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "cellimo",
+      "description": "Agentic, reproducible single-cell analysis in Marimo",
+      "version": "0.1.0",
+      "source": "./",
+      "license": "Apache-2.0",
+      "category": "Education & Research",
+      "keywords": [
+        "single-cell",
+        "scRNA-seq",
+        "marimo",
+        "reproducibility",
+        "provenance",
+        "scanpy"
+      ],
+      "skills": [
+        "./skills"
+      ]
+    }
+  ]
+}

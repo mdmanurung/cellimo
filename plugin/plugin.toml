@@ -1,0 +1,85 @@
+# Canonical Cellimo plugin definition.
+#
+# This file is the single source of truth. The platform manifests
+# (.claude-plugin/marketplace.json, .claude-plugin/plugin.json,
+# .codex-plugin/plugin.json) and .mcp.json are generated from it by
+# `python -m cellimo.plugin_manifest --write`, and a test asserts they have not
+# drifted. Edit this file, never the generated JSON.
+
+name = "cellimo"
+version = "0.1.0"
+description = "Agentic, reproducible single-cell analysis in Marimo"
+license = "Apache-2.0"
+homepage = "https://github.com/mdmanurung/cellimo"
+repository = "https://github.com/mdmanurung/cellimo"
+display_name = "Cellimo"
+long_description = """\
+Cellimo gives Codex or Claude Code the scaffolding to do single-cell analysis \
+in a live Marimo notebook: the experimental design is settled before any \
+p-value is computed, every artifact carries SHA-256 lineage back to an \
+immutable source dataset, and `cellimo check` refuses results that rest on \
+pseudoreplication or batch-corrected values. Retrieval over published \
+single-cell notebooks is read-only and citable."""
+category = "Education & Research"
+capabilities = ["Interactive", "Write"]
+default_prompts = [
+  "Pair with my marimo notebook and take me through quality control",
+  "Audit this .h5ad and propose the experimental design",
+  "Review my analysis against its recorded provenance",
+]
+keywords = [
+  "single-cell",
+  "scRNA-seq",
+  "marimo",
+  "reproducibility",
+  "provenance",
+  "scanpy",
+]
+
+# The distribution the plugin's MCP server comes from. `cellimo doctor` checks
+# that the installed version satisfies this.
+runtime_package = "cellimo==0.1.0"
+
+# Component paths, relative to the plugin root, as both platforms require.
+skills = "./skills/"
+mcp = "./.mcp.json"
+
+[author]
+name = "Cellimo contributors"
+url = "https://github.com/mdmanurung/cellimo"
+
+# The read-only retrieval server. `cellimo` must be on PATH — deliberately a
+# bare command rather than a ${CLAUDE_PLUGIN_ROOT} path, because that variable
+# is a Claude Code feature and this same stanza has to work under Codex.
+[mcp_servers.cellimo-knowledge]
+command = "cellimo"
+args = ["mcp", "serve"]
+
+# Skills shipped by this plugin. `vendored` ones are third-party copies pinned
+# in plugin/vendor/ and must not be edited here.
+[[skill]]
+name = "cellimo"
+summary = "Router: recognise a single-cell request, locate the project and session, pick the narrowest skill"
+
+[[skill]]
+name = "project-audit"
+summary = "Audit the dataset, propose the experimental design, get it approved"
+
+[[skill]]
+name = "quality-control"
+summary = "Sample-stratified QC with every exclusion recorded"
+
+[[skill]]
+name = "statistics"
+summary = "Donor-aware testing: pseudobulk or mixed models, never cells as replicates"
+
+[[skill]]
+name = "notebook-review"
+summary = "Review a notebook against the recorded provenance and the scientific invariants"
+
+[[skill]]
+name = "marimo-pair"
+vendored = true
+upstream = "https://github.com/marimo-team/marimo-pair"
+pinned = "v0.0.18"
+summary = "Drive the live Marimo session (vendored upstream, unmodified)"

@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "cellimo-knowledge": {
+      "command": "cellimo",
+      "args": [
+        "mcp",
+        "serve"
+      ]
+    }
+  }
+}

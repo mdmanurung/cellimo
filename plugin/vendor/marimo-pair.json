@@ -1,0 +1,29 @@
+{
+  "name": "marimo-pair",
+  "upstream_repository": "https://github.com/marimo-team/marimo-pair",
+  "pinned_tag": "v0.0.18",
+  "pinned_commit": "0c486ee7ee4cd54622e0d062badddab429f435b1",
+  "vendored_on": "2026-08-11",
+  "license": "Apache-2.0",
+  "license_file": "plugin/vendor/marimo-pair/LICENSE",
+  "copyright": "Copyright 2026 Marimo Team",
+  "modified": false,
+  "vendored_path": "plugin/skills/marimo-pair",
+  "upstream_path": "skills/marimo-pair",
+  "excluded_from_upstream": [
+    "skills/retro-marimo-pair (a feedback workflow for the marimo team, not part of the pairing mechanism)"
+  ],
+  "requires": {
+    "marimo": ">=0.23.8"
+  },
+  "files": {
+    "SKILL.md": "91c7cf56ec1ef41a3e919f02cb4aa0869249942515f46e337db697d8497bf985",
+    "reference/execution-context.md": "9adb0ea8ea048537ab33ec66c97e8e564c1ce266a1678893c18ad45556cbb7e3",
+    "reference/finding-marimo.md": "d5c9eea955b178998f83e0607874c001716481ec8287aca3c6d0686820f893f5",
+    "reference/gotchas.md": "8aeaff85ed8eb1b4fcceb782ced908d70dd5c16d9bbc739f9ca318e461c8b178",
+    "reference/notebook-improvements.md": "cf742bc3e71fd4adfc6443ea55b89dd81dc36f0c54acf3a402e33eac340610e3",
+    "reference/rich-representations.md": "7bf9a66f2a669fc66e4303c5c9c92495c0c0ab32bd7fc7ad13259b51f38344cf",
+    "scripts/discover-servers.sh": "e0b43ba5effe5f7e66e3c60fda4db7950b76feed8a72c082d5f8ded9769dc090",
+    "scripts/execute-code.sh": "b717b74e440fee0e63f4ac196d846249af29abb1124937fde626fa0e29b63220"
+  }
+}

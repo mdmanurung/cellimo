@@ -1,0 +1,23 @@
+{
+  "name": "cellimo",
+  "displayName": "Cellimo",
+  "version": "0.1.0",
+  "description": "Agentic, reproducible single-cell analysis in Marimo",
+  "author": {
+    "name": "Cellimo contributors",
+    "url": "https://github.com/mdmanurung/cellimo"
+  },
+  "homepage": "https://github.com/mdmanurung/cellimo",
+  "repository": "https://github.com/mdmanurung/cellimo",
+  "license": "Apache-2.0",
+  "keywords": [
+    "single-cell",
+    "scRNA-seq",
+    "marimo",
+    "reproducibility",
+    "provenance",
+    "scanpy"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}
