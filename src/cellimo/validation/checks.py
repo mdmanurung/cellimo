@@ -38,9 +38,9 @@ SEURAT_DE = (
 )
 
 #: Test names that are recognisably differential expression. Used only to make
-#: *messages* more specific and to escalate C012 — never to decide whether a
-#: record is exempt. Nothing here is a gate: a rule that can be escaped by
-#: renaming your test is not a rule.
+#: *messages* more specific — never to decide whether a rule applies to a
+#: record. Nothing here is a gate: a rule that can be escaped by renaming your
+#: test is not a rule.
 DE_TESTS: tuple[str, ...] = (
     "deseq",
     "edger",
@@ -1091,30 +1091,40 @@ def check_statistics_inputs(context: ValidationContext) -> list[Finding]:
 
 @register("C012", "Confirmatory analysis is sample-aware")
 def check_sample_aware(context: ValidationContext) -> list[Finding]:
+    """Catch a declared replicate unit that the analysis never aggregated to.
+
+    C004 accepts any record naming ``sample`` or ``donor`` as its unit. Naming
+    one is not the same as computing at it: a record can declare
+    ``unit_level="donor"`` while recording ``aggregation="none"``, which is a
+    cell-level test wearing a donor-level label. C012 owns exactly the records
+    C004 lets through, so the two never report the same record twice — an
+    earlier version keyed on the test name and duplicated C004 on every hit,
+    always at the weaker severity.
+    """
     findings: list[Finding] = []
     for record in context.confirmatory:
-        if not _is_de(record.test):
+        if record.unit_level not in REPLICATE_UNIT_LEVELS:
+            continue  # C004 owns this record; reporting it again adds nothing.
+        if record.aggregation in REPLICATE_AWARE_AGGREGATIONS:
             continue
-        if record.aggregation in {"pseudobulk", "mixed_model", "meta_analysis"}:
-            continue
-        if record.unit_level in {"sample", "donor"}:
-            continue
-        if record.justification.strip():
+        if _is_substantive(record.justification):
             continue
         findings.append(
             Finding(
                 code="C012",
                 severity="warning",
-                title="Confirmatory differential expression is not sample-aware",
+                title="A replicate unit is declared but never aggregated to",
                 detail=(
-                    f"{record.name!r} records aggregation={record.aggregation!r} and "
-                    f"unit_level={record.unit_level!r}; neither pseudobulk aggregation "
-                    f"nor a donor random effect is recorded"
+                    f"{record.name!r} declares unit_level={record.unit_level!r} but "
+                    f"records aggregation={record.aggregation!r}, so nothing shows "
+                    f"the test was computed across replicates rather than across "
+                    f"cells that merely carry a {record.unit_level} label"
                 ),
                 location=_label(record.record_id, record.name),
                 remedy=(
-                    "Aggregate counts per donor/sample and test with a count model, "
-                    "or fit a mixed model with a donor random effect."
+                    "Record how the analysis reached that unit — aggregation="
+                    "pseudobulk, mixed_model or meta_analysis — or justify why a "
+                    "cell-level computation answers a sample-level question."
                 ),
                 references=[SQUAIR, MURPHY],
             )

@@ -579,6 +579,51 @@ def test_a_substantive_justification_still_downgrades(project: Project) -> None:
     assert "C004" in {finding.code for finding in report.warnings}
 
 
+def _sample_aware_record(project: Project, **overrides: object) -> None:
+    qc = _register_qc(project)
+    fields: dict[str, object] = {
+        "name": "stim vs ctrl",
+        "test": "wilcoxon",
+        "mode": "confirmatory",
+        "unit_level": "donor",
+        "n_units": {"stim": 3, "ctrl": 3},
+        "input_artifact_sha256": qc.sha256,
+        "input_representation": "raw_counts",
+        "aggregation": "none",
+        "effect_size": {"reported": True, "measure": "log2FC"},
+        "uncertainty": {"reported": True, "measure": "padj"},
+    }
+    project.record_statistics(**(fields | overrides))  # type: ignore[arg-type]
+
+
+def test_a_declared_replicate_unit_that_was_never_aggregated_to_is_reported(
+    project: Project,
+) -> None:
+    """Naming donors as the unit is not the same as computing across them."""
+    _approved(project)
+    _sample_aware_record(project)
+    assert "C012" in _codes(project, "warning")
+
+
+def test_aggregating_to_the_declared_unit_satisfies_the_rule(project: Project) -> None:
+    _approved(project)
+    _sample_aware_record(project, aggregation="pseudobulk", test="pseudobulk_deseq2")
+    assert "C012" not in _codes(project, "warning")
+
+
+def test_c012_does_not_restate_what_c004_already_reported(project: Project) -> None:
+    """The two checks partition the confirmatory records; they do not overlap.
+
+    A cell-level record with no justification is C004's, and an earlier C012
+    keyed on the test name fired on it too — a second, weaker finding saying the
+    same thing about the same record.
+    """
+    _approved(project)
+    _sample_aware_record(project, unit_level="cell")
+    assert "C004" in _codes(project, "error")
+    assert "C012" not in _codes(project, "warning")
+
+
 def test_relabelling_the_input_does_not_launder_a_corrected_artifact(
     project: Project,
 ) -> None:
