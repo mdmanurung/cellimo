@@ -1,0 +1,86 @@
+# Re-execute the tutorial and report whether its output changed.
+#
+# `docs/tutorial.ipynb` runs a real analysis of a real dataset, so it is executed
+# locally and its outputs are committed rather than rebuilt on every push. The
+# cost of that is staleness: if the Cellimo API changes, the committed outputs
+# keep describing the old behaviour and nothing notices. This job notices.
+#
+# It is deliberately scheduled and manual only, and deliberately advisory. It
+# downloads a 38 MB dataset from a third-party bucket and installs a heavy extra
+# (pertpy pulls jax); wiring that into every push would make an outage at
+# scverse's S3 bucket able to block a merge. Here it can only produce a summary
+# nobody is blocked on.
+name: tutorial-refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 04:17 on the 1st of each month. Off-peak, and not on the hour, because
+    # every cron job in the world fires on the hour.
+    - cron: "17 4 1 * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tutorial-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # The notebook pins scanpy's datasetdir here so the download is cached in
+      # one predictable place instead of landing beside whatever directory the
+      # notebook ran from.
+      - name: Cache the dataset
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/cellimo-docs-data
+          key: kang2018-v1
+
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install '.[docs,docs-data]'
+
+      - name: Re-execute the tutorial
+        id: execute
+        continue-on-error: true
+        run: make -C docs execute
+
+      - name: Report
+        run: |
+          {
+            echo "## Tutorial refresh"
+            echo
+            if [ "${{ steps.execute.outcome }}" != "success" ]; then
+              echo ":x: **The notebook failed to execute.** The API it documents has"
+              echo "probably changed. See the step log above."
+            elif git diff --quiet -- docs/tutorial.ipynb; then
+              echo ":white_check_mark: Re-executed cleanly with no change to the output."
+            else
+              echo ":warning: **The output changed.** The committed notebook is stale."
+              echo
+              echo '```'
+              git diff --stat -- docs/tutorial.ipynb
+              echo '```'
+              echo
+              echo "Refresh it locally and commit the result:"
+              echo
+              echo '```bash'
+              echo "pip install -e '.[docs,docs-data]'"
+              echo "make -C docs execute"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if the notebook could not run
+        if: steps.execute.outcome != 'success'
+        run: exit 1

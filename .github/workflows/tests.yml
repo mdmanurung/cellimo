@@ -1,0 +1,50 @@
+# The suite, the linter and the type checker.
+#
+# This exists because `docs/tutorial.ipynb` no longer executes in CI. Until it
+# was replaced by a locally-executed notebook, the docs build was the only thing
+# gating the documented API — a drifted signature failed the build. That gate had
+# to move somewhere, and `tests/test_vertical_slice.py` already walks the same
+# arc (audit -> design -> approve -> stage -> record_statistics -> check) with
+# more coverage and no dataset.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install
+        run: python -m pip install --upgrade pip && python -m pip install '.[dev]'
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Type check
+        run: mypy
+
+      - name: Test
+        run: pytest -q
