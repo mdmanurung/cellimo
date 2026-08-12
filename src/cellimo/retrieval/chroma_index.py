@@ -44,6 +44,7 @@ from typing import Any
 
 from cellimo.errors import ReferenceNotFoundError, RetrievalError
 from cellimo.retrieval.base import KnowledgeIndex
+from cellimo.retrieval.diversify import diversify
 from cellimo.retrieval.ids import (
     chunk_reference_id,
     notebook_reference_id,
@@ -65,6 +66,11 @@ __all__ = ["EMBEDDING_MODEL", "SUMMARY_COLLECTION", "ChromaKnowledgeIndex"]
 #: search, so it is stated here and reported by ``index_status``.
 EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 SUMMARY_COLLECTION = "notebook_summaries"
+
+#: How many candidates to fetch per requested hit. Anything that narrows results
+#: afterwards — dedup, a per-repository cap — needs a pool to backfill from, or
+#: it can only shrink the answer.
+OVER_FETCH = 4
 _WORKFLOW_SUFFIX = "_workflows"
 _API_SUFFIX = "_api"
 
@@ -180,8 +186,13 @@ class ChromaKnowledgeIndex(KnowledgeIndex):
         if self._summary_collection is None:
             return self._search_chunks(query, packages=packages, top_k=top_k)
 
-        # Over-fetch so post-hoc filtering still has candidates to rank.
-        fetch = max(top_k * 4, top_k) if (packages or modalities) else top_k
+        # Over-fetch unconditionally. This used to widen only when `packages` or
+        # `modalities` were set, which meant the ordinary no-filter call — every
+        # call the MCP tool makes by default — asked Chroma for exactly `top_k`
+        # and left nothing to draw on. Any later step that drops a candidate
+        # (deduplicating checkpoint copies, limiting one repository's share)
+        # could then only return fewer results, never better ones.
+        fetch = max(top_k * OVER_FETCH, top_k)
         try:
             raw = self._summary_collection.query(query_texts=[query], n_results=max(1, fetch))
         except Exception as exc:
@@ -242,16 +253,21 @@ class ChromaKnowledgeIndex(KnowledgeIndex):
                 )
             ]
 
-        note = ""
+        hits, filtered = diversify(hits, top_k=top_k)
+
+        notes = []
         if approximate:
-            note = (
+            notes.append(
                 "package and modality filters are best-effort: the index records the "
                 "source repository, not an importable package name, and has no "
                 "modality field"
             )
+        if filtered:
+            notes.append(filtered)
+        note = "; ".join(notes)
         return SearchResult(
             query=query,
-            hits=hits[:top_k],
+            hits=hits,
             backend=self.backend,
             approximate_filters=approximate,
             note=note,

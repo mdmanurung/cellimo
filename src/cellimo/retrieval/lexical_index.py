@@ -22,6 +22,7 @@ from typing import Any
 
 from cellimo.errors import ReferenceNotFoundError, RetrievalError
 from cellimo.retrieval.base import KnowledgeIndex
+from cellimo.retrieval.diversify import diversify
 from cellimo.retrieval.ids import (
     ParsedReference,
     chunk_reference_id,
@@ -220,13 +221,17 @@ class LexicalKnowledgeIndex(KnowledgeIndex):
         ]
         scored = [pair for pair in scored if pair[0] > 0]
         scored.sort(key=lambda pair: (-pair[0], pair[1].reference_id))
-        hits = [self._to_hit(document, score) for score, document in scored[: max(0, top_k)]]
-        note = ""
+        ranked = [self._to_hit(document, score) for score, document in scored]
+        hits, filtered = diversify(ranked, top_k=top_k)
+        notes = []
         if modalities:
-            note = (
+            notes.append(
                 "modality filtering is best-effort text matching: the index has no "
                 "modality field"
             )
+        if filtered:
+            notes.append(filtered)
+        note = "; ".join(notes)
         return SearchResult(
             query=query,
             hits=hits,
