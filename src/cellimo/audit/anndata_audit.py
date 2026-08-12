@@ -275,6 +275,19 @@ def _safe_x(adata: Any) -> Any:
         return None
 
 
+def _layer_names(adata: Any) -> list[str]:
+    """Real layer names, sorted.
+
+    anndata 0.13 yields a spurious ``None`` from ``layers.keys()`` — alone when
+    the object has no layers, and *alongside* the real names when it does
+    (reproduced against 0.13.2; 0.12.19 does not do this). Left in, it reaches
+    ``AuditReport.layers: list[str]`` as a validation error, and reaches
+    ``name.lower()`` in the counts search as an AttributeError on any object
+    whose ``X`` is not already counts.
+    """
+    return sorted(str(name) for name in adata.layers if name is not None)
+
+
 def _find_raw_counts(adata: Any, n_obs: int) -> RawCountsFinding:
     """Look for unmodified counts in X, then in conventional layers, then .raw."""
     x_integer, x_min, x_max = _matrix_stats(_sample_matrix(_safe_x(adata), n_obs))
@@ -290,7 +303,7 @@ def _find_raw_counts(adata: Any, n_obs: int) -> RawCountsFinding:
             value_max=x_max,
         )
 
-    for name in adata.layers:
+    for name in _layer_names(adata):
         if name.lower() not in COUNTS_LAYER_NAMES:
             continue
         integer_like, minimum, maximum = _matrix_stats(
@@ -426,7 +439,7 @@ def audit_anndata(path: str | Path, *, backed: bool = True) -> AuditReport:
             "x_is_sparse": bool(x_is_sparse),
             "obs_columns": obs_columns,
             "var_columns": var_columns,
-            "layers": sorted(adata.layers.keys()),
+            "layers": _layer_names(adata),
             "obsm_keys": sorted(adata.obsm.keys()),
             "varm_keys": sorted(adata.varm.keys()),
             "obsp_keys": sorted(adata.obsp.keys()),

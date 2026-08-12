@@ -107,6 +107,23 @@ class ArtifactDescriptor(BaseModel):
 
     exclusions: list[Exclusion] = Field(default_factory=list)
 
+    @field_validator("layers", mode="before")
+    @classmethod
+    def _real_layer_names(cls, value: Any) -> Any:
+        """Drop the ``None`` anndata 0.13 reports as a layer.
+
+        ``adata.layers.keys()`` on anndata 0.13 yields a spurious ``None`` —
+        alone when the object has no layers, and alongside the real names when
+        it has some (reproduced against 0.13.2; 0.12.19 does not). The obvious
+        caller spelling, ``layers=list(adata.layers.keys())``, therefore fails
+        validation here on one anndata and passes on another. A layer with no
+        name is not a fact about the artifact under any version, so it is
+        dropped rather than made the caller's problem.
+        """
+        if isinstance(value, (list, tuple, set)):
+            return [str(name) for name in value if name is not None]
+        return value
+
     @field_validator("path")
     @classmethod
     def _relative_posix(cls, value: str) -> str:

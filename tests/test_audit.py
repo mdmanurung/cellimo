@@ -166,3 +166,29 @@ def test_a_per_cell_identifier_is_not_proposed_as_a_design_column(tmp_path: Path
     proposed = [item.column for item in report.design_candidates.get("sample", [])]
     assert "sample_id" in proposed
     assert "sample_barcode" not in proposed, "a per-cell barcode is not a design column"
+
+
+def test_layer_names_drop_the_none_anndata_013_emits() -> None:
+    """anndata 0.13 reports a layer that is not there.
+
+    `layers.keys()` yields a spurious `None` — alone on an object with no
+    layers, and alongside the real names when there are some (reproduced
+    against 0.13.2; 0.12.19 does not). It reached `AuditReport.layers:
+    list[str]` as a validation error and `name.lower()` in the counts search as
+    an AttributeError, so five tests passed on 3.11 and failed on 3.12.
+    """
+    from cellimo.audit.anndata_audit import _layer_names
+
+    class _Layers(dict):  # type: ignore[type-arg]
+        def __iter__(self):
+            return iter([None, "counts", None])
+
+    class _Backed:
+        layers = _Layers()
+
+    assert _layer_names(_Backed()) == ["counts"]
+
+    class _Empty:
+        layers = type("_L", (dict,), {"__iter__": lambda self: iter([None])})()
+
+    assert _layer_names(_Empty()) == []
