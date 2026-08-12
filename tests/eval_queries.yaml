@@ -1,0 +1,124 @@
+# Retrieval evaluation set — DRAFT, needs your correction.
+#
+# Each query is scored on what comes back in the top 3 against the real archive:
+#   good  — a hit from one of these repositories counts as a correct answer
+#   noise — a hit from one of these is a miss, and a regression if it appears
+#
+# Both lists are prefixes, matched against `source_repository`.
+#
+# Two things to correct, and they matter more than the query wording:
+#   1. Is a repository I called `good` really a good answer for that step?
+#   2. Have I called something noise that you would actually want to read?
+#
+# Drafted from what the live index returns today. Where I was unsure I left the
+# entry sparse rather than guessing — those are marked TODO.
+
+# `lueckenlab/masterpraktikum_fibrosis_atlas` appears in 5 of 12 draft queries.
+# It is a teaching-course repository, duplicate-laden, and not peer-reviewed
+# work. Listed as noise everywhere below on that basis — say if you disagree,
+# because it is the single biggest lever on the score.
+global_noise:
+  - lueckenlab/masterpraktikum        # coursework, duplicate-heavy
+  - epigen/CellWhisperer              # an LLM/text project, not an analysis
+  - dpeerlab/MitoEJ-paper-analysis    # mitochondrial heteroplasmy, matches "mitochondrial"
+
+queries:
+  - id: load-10x
+    query: read 10x mtx cellranger filtered feature bc matrix into anndata
+    good: [scverse/, theislab/, YosefLab/]
+    noise: []
+    # TODO: is there a canonical loading notebook you would want here?
+
+  - id: qc-prose
+    query: quality control filter cells by detected genes and mitochondrial fraction
+    good: [scverse/, theislab/scib-reproducibility, epigen/macrophage-regulation, saezlab/reheat2_pub]
+    noise: [theislab/mapqc]   # mapQC is atlas-mapping QC, a different thing
+    # This is THE failure case: before the per-repo cap, 5/5 hits were MitoEJ.
+
+  - id: qc-symbols
+    query: sc.pp.filter_cells sc.pp.filter_genes sc.pp.calculate_qc_metrics
+    good: [scverse/, epigen/macrophage-regulation, theislab/scib-reproducibility]
+    noise: [aertslab/SpatialNF]   # spatial pipeline, not single-cell QC
+    # Same intent as qc-prose. If symbol queries score better, that belongs in
+    # the skills: the agent should query with the functions it is about to write.
+
+  - id: doublets
+    query: doublet detection scrublet solo
+    good: [teichlab/, scverse/, theislab/]
+    noise: []
+
+  - id: normalise
+    query: normalize_total log1p highly variable genes
+    good: [scverse/, theislab/scib-reproducibility]
+    noise: []
+
+  - id: integrate
+    query: batch integration harmony scvi scanorama
+    good: [scverse/scvi-tutorials, theislab/scib-reproducibility, teichlab/PanGIAtlas]
+    noise: []
+
+  - id: cluster
+    query: sc.pp.neighbors sc.tl.leiden sc.tl.umap
+    good: [scverse/, theislab/paga, theislab/cellrank_reproducibility]
+    noise: [theislab/ehrapy]   # electronic health records, matched on "clustering"
+
+  - id: annotate
+    query: annotate cell types from marker genes
+    good: [teichlab/celltypist, saezlab/visium_heart, scverse/]
+    noise: []
+
+  - id: de-pseudobulk
+    query: pseudobulk differential expression per donor deseq2
+    good: [saezlab/reheat2_pub, saezlab/MOFAcellular, theislab/]
+    noise: []
+    # The flagship case. A curated allow-list variant of the cap zeroed this
+    # query out entirely in review, which is why we cap instead of allow-list.
+
+  - id: de-markers
+    query: rank_genes_groups wilcoxon marker genes per cluster
+    good: [scverse/, teichlab/, saezlab/visium_heart]
+    noise: []
+
+  - id: abundance
+    query: cell type composition differential abundance milo
+    good: [teichlab/PanGIAtlas, teichlab/SKM_ageing_atlas, MarioniLab/]
+    noise: []
+    # TODO: MarioniLab wrote miloR. Confirm it is in the corpus at all.
+
+  - id: trajectory
+    query: trajectory inference pseudotime diffusion
+    good: [theislab/paga, theislab/pseudodynamics, theislab/cellrank_reproducibility]
+    noise: []
+
+  - id: spatial
+    query: spatial transcriptomics visium neighbourhood enrichment
+    good: [scverse/squidpy_notebooks, saezlab/visium_heart]
+    noise: []
+
+  - id: cellcell
+    query: ligand receptor cell-cell communication
+    good: [saezlab/, theislab/ncem_benchmarks]
+    noise: []
+
+  - id: velocity
+    query: rna velocity scvelo dynamical model
+    good: [theislab/, scverse/]
+    noise: []
+    # TODO: unsure this is well covered by the corpus — check before trusting.
+
+  - id: pertseq
+    query: perturbation screen crispr guide assignment
+    good: [theislab/pertpy-reproducibility, YosefLab/]
+    noise: []
+
+  - id: multiome
+    query: joint rna atac multiome analysis
+    good: [scverse/muon-tutorials, aertslab/]
+    noise: []
+
+  - id: pseudobulk-agg
+    query: aggregate counts per sample decoupler get_pseudobulk
+    good: [saezlab/]
+    noise: []
+    # decoupler is a saezlab tool; if this does not return saezlab, ranking is
+    # broken in a way the other queries would not show.
