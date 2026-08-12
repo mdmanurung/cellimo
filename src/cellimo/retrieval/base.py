@@ -56,9 +56,20 @@ class KnowledgeIndex(ABC):
 
     @abstractmethod
     def get_reference(
-        self, reference_id: str, section_ids: Sequence[str] | None = None
+        self,
+        reference_id: str,
+        section_ids: Sequence[str] | None = None,
+        *,
+        with_provenance: bool = True,
     ) -> Reference:
-        """Return the exact source behind ``reference_id``."""
+        """Return the exact source behind ``reference_id``.
+
+        ``with_provenance`` prefixes each code section with a
+        ``# cellimo:source`` header so the origin travels with the code once the
+        agent adapts it into a cell. Pass ``False`` to get the section exactly as
+        published — which is what verifying a citation needs, since the hash
+        covers the raw content.
+        """
 
     @abstractmethod
     def status(self) -> IndexStatus:
@@ -108,7 +119,11 @@ class MissingIndex(KnowledgeIndex):
         return self._empty(query)
 
     def get_reference(
-        self, reference_id: str, section_ids: Sequence[str] | None = None
+        self,
+        reference_id: str,
+        section_ids: Sequence[str] | None = None,
+        *,
+        with_provenance: bool = True,
     ) -> Reference:
         raise IndexNotFoundError(self.reason)
 

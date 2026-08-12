@@ -22,6 +22,7 @@ from typing import Any
 
 from cellimo.errors import ReferenceNotFoundError, RetrievalError
 from cellimo.retrieval.base import KnowledgeIndex
+from cellimo.retrieval.citations import attach_headers
 from cellimo.retrieval.diversify import diversify
 from cellimo.retrieval.ids import (
     ParsedReference,
@@ -268,7 +269,11 @@ class LexicalKnowledgeIndex(KnowledgeIndex):
         )
 
     def get_reference(
-        self, reference_id: str, section_ids: Sequence[str] | None = None
+        self,
+        reference_id: str,
+        section_ids: Sequence[str] | None = None,
+        *,
+        with_provenance: bool = True,
     ) -> Reference:
         parsed: ParsedReference = parse_reference_id(reference_id)
         document = self._by_id.get(reference_id)
@@ -299,7 +304,7 @@ class LexicalKnowledgeIndex(KnowledgeIndex):
             )
         sections, omitted = bound_sections(sections)
         body = "\n\n".join(section.content for section in sections)
-        return Reference(
+        reference = Reference(
             reference_id=reference_id,
             title=document.title,
             source_repository=document.source_repository,
@@ -310,8 +315,10 @@ class LexicalKnowledgeIndex(KnowledgeIndex):
             organization=document.organization,
             summary=_truncate(document.summary),
             sections=sections,
-            # Hashes what was actually returned, so a provenance record matches
-            # the text the agent read.
+            # Hashes the source content, before any citation header is
+            # attached. The header is derived and reproducible, so including
+            # it would make the same section hash differently depending on
+            # whether provenance was requested.
             content_hash=hash_bytes(body.encode("utf-8")),
             license=document.license,
             note=(
@@ -321,6 +328,7 @@ class LexicalKnowledgeIndex(KnowledgeIndex):
                 else ""
             ),
         )
+        return attach_headers(reference) if with_provenance else reference
 
     def status(self) -> IndexStatus:
         workflows = [document for document in self.documents if document.kind == "workflow"]

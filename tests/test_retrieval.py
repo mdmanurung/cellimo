@@ -206,7 +206,10 @@ def test_get_reference_bounds_a_huge_section(tmp_path: Path) -> None:
     }
     (root / "cellimo-index.json").write_text(json.dumps(payload), encoding="utf-8")
 
-    reference = LexicalKnowledgeIndex(root).get_reference("notebook:huge_nb")
+    # Undecorated: this is about the size bound, not about citation headers.
+    reference = LexicalKnowledgeIndex(root).get_reference(
+        "notebook:huge_nb", with_provenance=False
+    )
     section = reference.sections[0]
     assert len(section.content) <= MAX_SECTION_CHARS
     assert section.truncated
@@ -271,7 +274,9 @@ def test_content_hash_covers_what_was_actually_returned(tmp_path: Path) -> None:
         ),
         encoding="utf-8",
     )
-    reference = LexicalKnowledgeIndex(root).get_reference("notebook:nb")
+    reference = LexicalKnowledgeIndex(root).get_reference(
+        "notebook:nb", with_provenance=False
+    )
     returned = "\n\n".join(section.content for section in reference.sections)
     assert reference.content_hash == hash_bytes(returned.encode("utf-8"))
     assert reference.content_hash != hash_bytes(content.encode("utf-8"))
