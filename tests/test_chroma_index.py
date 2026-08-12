@@ -44,9 +44,19 @@ def chroma_index(tmp_path_factory: pytest.TempPathFactory) -> Path:
     (summaries / "notebooks" / "scverse" / "scanpy" / f"{NOTEBOOK_ID}.json").write_text(
         json.dumps(
             {
-                "title": "PBMC3k quality control",
-                "source_repository": REPOSITORY,
-                "full_notebook_id": f"{REPOSITORY}/docs/tutorials/pbmc3k.ipynb",
+                # The real archive nests provenance under "metadata" and gives the
+                # payload exactly four top-level keys. The fixture used to put
+                # these at the top level — a shape no published index has — which
+                # is why every reference came back with a blank repository and
+                # title for months without a test noticing.
+                "notebook_id": NOTEBOOK_ID,
+                "cell_count": 2,
+                "metadata": {
+                    "title": "PBMC3k quality control",
+                    "source_repository": REPOSITORY,
+                    "workflow_filename": "pbmc3k.ipynb",
+                    "source_path": f"{REPOSITORY}/docs/tutorials/pbmc3k.ipynb",
+                },
                 "cells": [
                     {
                         "cell_type": "markdown",
@@ -148,6 +158,24 @@ def test_get_reference_reads_the_notebook_store(chroma_index: Path) -> None:
     assert reference.summary.startswith("Quality control of PBMC3k")
     assert reference.content_hash
     assert "licences" in reference.note
+
+
+def test_get_reference_carries_the_provenance_a_citation_needs(
+    chroma_index: Path,
+) -> None:
+    """Repository, title and URL come from the payload's nested metadata block.
+
+    Reading these off the top level instead — where the fixture used to put them
+    and no published archive ever does — returned a blank repository and the
+    notebook id as the title for all 2,845 notebooks in the real index. Nothing
+    caught it, because no test asserted on these fields at all.
+    """
+    reference = open_index(chroma_index).get_reference(f"notebook:{NOTEBOOK_ID}")
+    assert reference.source_repository == REPOSITORY
+    assert reference.title == "PBMC3k quality control"
+    assert reference.title != NOTEBOOK_ID, "the id is a fallback, not a title"
+    assert reference.organization == REPOSITORY.split("/", maxsplit=1)[0]
+    assert REPOSITORY in reference.url
 
 
 def test_get_reference_selects_sections(chroma_index: Path) -> None:

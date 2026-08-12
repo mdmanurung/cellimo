@@ -421,6 +421,12 @@ class ChromaKnowledgeIndex(KnowledgeIndex):
         except (OSError, json.JSONDecodeError) as exc:
             raise RetrievalError(f"cannot read {path}: {exc}") from exc
 
+        # Provenance lives under "metadata", not at the top level. The stored
+        # notebook JSON has exactly four top-level keys — cell_count, cells,
+        # metadata, notebook_id — so reading source_repository/title/license
+        # off the payload blanked them for all 2,845 notebooks in the published
+        # archive. Verified against kai_retrieval_251121.
+        meta = payload.get("metadata") or {}
         cells = payload.get("cells") or []
         wanted = {str(value) for value in section_ids} if section_ids else None
         sections: list[ReferenceSection] = []
@@ -451,21 +457,28 @@ class ChromaKnowledgeIndex(KnowledgeIndex):
                 f"available: {available[:20]}"
             )
 
-        repository = str(payload.get("source_repository", ""))
+        repository = str(meta.get("source_repository", payload.get("source_repository", "")))
         sections, omitted = bound_sections(sections)
         body = "\n\n".join(section.content for section in sections)
         return Reference(
             reference_id=notebook_reference_id(notebook_id),
-            title=str(payload.get("title", notebook_id)),
+            title=str(meta.get("title") or payload.get("title") or notebook_id),
             source_repository=repository,
-            source_path=str(payload.get("notebook_path", payload.get("full_notebook_id", ""))),
-            url=_github_url(repository, str(payload.get("full_notebook_id", ""))),
+            source_path=str(
+                meta.get("workflow_filename")
+                or meta.get("source_path")
+                or payload.get("notebook_path", payload.get("full_notebook_id", ""))
+            ),
+            url=_github_url(
+                repository,
+                str(meta.get("workflow_filename") or payload.get("full_notebook_id", "")),
+            ),
             package=_package_from_repository(repository),
             organization=repository.split("/", maxsplit=1)[0] if "/" in repository else "",
             summary=self._read_summary(notebook_id, repository),
             sections=sections,
             content_hash=hash_bytes(body.encode("utf-8")),
-            license=str(payload.get("license", "")),
+            license=str(meta.get("license", payload.get("license", ""))),
             note=(
                 (
                     f"{omitted} characters omitted; request narrower section_ids to "
