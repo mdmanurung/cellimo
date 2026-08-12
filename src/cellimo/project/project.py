@@ -6,7 +6,7 @@ trail, which is what makes the safety and lineage guarantees enforceable.
 
 Everything here is explicit. There is no ``run_full_pipeline()``: scientific
 transformations stay visible in the notebook, and this API records what they
-did.
+did::
 
     from cellimo import Project
 

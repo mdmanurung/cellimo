@@ -331,6 +331,26 @@ the test suite runs.
 
 ## Documentation
 
+The pages below also build into a website with Sphinx and MyST-NB:
+
+```bash
+pip install -e '.[docs]'
+make -C docs html          # -> docs/_build/html/index.html
+```
+
+`docs/tutorial.md` is an *executed* notebook: it builds a six-donor dataset,
+runs a project end to end and prints the validator's real output, including the
+`C004` error raised by a deliberately pseudoreplicated comparison. The build
+runs with `-W` and `nb_execution_raise_on_error`, so if the tutorial stops
+matching the code, the documentation stops building. Nothing enforces that
+automatically yet — there is no CI in this repository — so run it before a
+release.
+
+Note that the tutorial is a Jupyter notebook while your analysis is a Marimo
+one. MyST-NB cannot execute a Marimo notebook, so the tutorial drives the same
+Python API from an IPython kernel and shows the generated `analysis.py` as
+source.
+
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — who owns what, and why
 - [docs/MARIMO.md](docs/MARIMO.md) — the notebook, marimo-pair, sessions
 - [docs/PLUGIN.md](docs/PLUGIN.md) — one tree, two platforms
