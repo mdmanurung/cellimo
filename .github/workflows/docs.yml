@@ -1,0 +1,89 @@
+# Build the documentation site and publish it to GitHub Pages.
+#
+# The build runs with `-W`, and `docs/tutorial.md` executes the real Cellimo API
+# through MyST-NB while `docs/playground.md` executes a Marimo notebook through
+# the islands directive. A cell that raises fails the build. That makes this
+# workflow the only automated check in the repository that the documented API
+# still behaves as documented — pull requests build without deploying, so the
+# breakage surfaces before it merges.
+name: docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "src/cellimo/**"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - "src/cellimo/**"
+      - "pyproject.toml"
+      - ".github/workflows/docs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Builds are serialised per ref, so a superseded pull-request build is cancelled
+# rather than queued. The `pages` group belongs on the deploy job alone: putting
+# it here would let a slow pull-request build hold the group and block main's
+# deploy behind it, since `cancel-in-progress` is false for deploys.
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # The build executes notebook code. A hung kernel should fail, not idle for
+    # the six-hour default.
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install the docs extra
+        # Includes anndata/numpy/pandas/scipy — the tutorial genuinely runs them
+        # — and marimo, which the islands directive imports.
+        run: python -m pip install --upgrade pip && python -m pip install '.[docs]'
+
+      - name: Build
+        run: sphinx-build -b html docs docs/_build/html -W --keep-going
+
+      - name: Disable Jekyll
+        # Redundant for the artifact-based deploy below, which serves files as
+        # uploaded. Kept so that a future switch to branch-based publishing does
+        # not silently drop Sphinx's _static/ and _sources/ directories.
+        run: touch docs/_build/html/.nojekyll
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    # Pull requests build but do not publish.
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Never cancel a deploy midway; queue instead. Cancelling a half-finished
+    # Pages deployment is how a site ends up serving a partial upload.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

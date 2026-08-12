@@ -80,6 +80,9 @@ nb_merge_streams = True
 
 # -- HTML --------------------------------------------------------------------
 
+#: Served from a project subpath, not a domain root. Sphinx emits relative
+#: links either way; this is for canonical URLs and social-card metadata.
+html_baseurl = "https://mdmanurung.github.io/cellimo/"
 html_theme = "sphinx_book_theme"
 html_title = f"Cellimo {release}"
 html_copy_source = True

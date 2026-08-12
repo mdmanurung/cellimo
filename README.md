@@ -331,7 +331,8 @@ the test suite runs.
 
 ## Documentation
 
-The pages below also build into a website with Sphinx and MyST-NB:
+The site is published at **<https://mdmanurung.github.io/cellimo/>**, rebuilt
+from `main` by `.github/workflows/docs.yml`. To build it locally:
 
 ```bash
 pip install -e '.[docs]'

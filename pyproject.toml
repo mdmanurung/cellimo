@@ -116,6 +116,7 @@ cellimo = "cellimo.cli.main:main"
 
 [project.urls]
 Homepage = "https://github.com/mdmanurung/cellimo"
+Documentation = "https://mdmanurung.github.io/cellimo/"
 Source = "https://github.com/mdmanurung/cellimo"
 
 [tool.hatch.build.targets.wheel]
