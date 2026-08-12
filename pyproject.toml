@@ -1,0 +1,162 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cellimo"
+version = "0.1.0"
+description = "Agentic, reproducible single-cell analysis in Marimo"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [{ name = "Cellimo contributors" }]
+keywords = [
+  "single-cell",
+  "scRNA-seq",
+  "marimo",
+  "reproducibility",
+  "provenance",
+  "agents",
+  "mcp",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
+
+# The tool runtime stays light on purpose: CLI, provenance, validation and the
+# read-only MCP server must install in seconds and must never drag in Scanpy,
+# Torch or CUDA wheels. The scientific stack lives in the optional groups below
+# and is installed into the *project* runtime, not the tool runtime.
+dependencies = [
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+  "click>=8.1",
+  "platformdirs>=4.0",
+  "packaging>=23.0",
+  "mcp>=2.0,<3",
+]
+
+[project.optional-dependencies]
+# Semantic + lexical retrieval over the inherited KAI knowledge index.
+retrieval = [
+  "chromadb>=0.5,<2",
+  "sentence-transformers>=3.0",
+]
+# The Marimo project runtime.
+notebook = [
+  "marimo>=0.23.8",
+]
+# The default scientific profile.
+scanpy = [
+  "marimo>=0.23.8",
+  "anndata>=0.10",
+  "scanpy>=1.10",
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "scipy>=1.11",
+  "scikit-learn>=1.3",
+  "leidenalg>=0.10",
+  "igraph>=0.11",
+  "matplotlib>=3.9",
+]
+scvi = [
+  "scvi-tools>=1.1",
+]
+spatial = [
+  "squidpy>=1.5",
+]
+multimodal = [
+  "mudata>=0.3",
+]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "ruff>=0.6",
+  "mypy>=1.10",
+  "types-PyYAML>=6.0",
+  "build>=1.2",
+  "anndata>=0.10",
+  "numpy>=1.26",
+  "pandas>=2.0",
+  "scipy>=1.11",
+  "marimo>=0.23.8",
+  # Exercises the ChromaDB retrieval backend — the one that serves the real
+  # published index — against a real index rather than a fixture. Deselect with
+  # `-m 'not needs_retrieval'` if the wheel is too heavy for your CI.
+  "chromadb>=0.5,<2",
+]
+
+[project.scripts]
+cellimo = "cellimo.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/mdmanurung/cellimo"
+Source = "https://github.com/mdmanurung/cellimo"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cellimo"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"plugin" = "cellimo/_plugin"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/cellimo",
+  "plugin",
+  "tests",
+  "docs",
+  "README.md",
+  "LICENSE",
+  "THIRD_PARTY_NOTICES.md",
+  "CHANGELOG.md",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+markers = [
+  "slow: tests that read or write large files",
+  "needs_marimo: requires marimo to be installed",
+  "needs_anndata: requires anndata to be installed",
+  "needs_retrieval: requires the retrieval extra (chromadb)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "PL", "RUF"]
+ignore = [
+  "PLR0913", # explicit keyword-heavy recording APIs are the point
+  "PLR0917", # click passes command options by keyword, never positionally
+  "PLR2004", # magic numbers in thresholds are clearer inline
+  "PLR0912", # validation functions branch a lot by design
+  "PLR0915",
+  "PLR0911", # error dispatch is naturally many-returns; collapsing it hurts clarity
+  "PLC0415", # deferred imports keep the tool runtime free of the scientific stack
+  "B008",
+  "B027",    # KnowledgeIndex.close is an optional hook, not an abstract method
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/cellimo/templates/*.py" = ["ALL"]      # generated Marimo notebook template
+"tests/*" = ["PLR2004", "PLC0415"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["src/cellimo"]
+strict_optional = true
+warn_unused_ignores = false
+warn_redundant_casts = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+exclude = ["src/cellimo/templates/"]
