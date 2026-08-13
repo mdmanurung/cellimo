@@ -178,6 +178,29 @@ def test_get_reference_carries_the_provenance_a_citation_needs(
     assert REPOSITORY in reference.url
 
 
+def test_get_reference_attaches_the_citation_header(chroma_index: Path) -> None:
+    """The production backend must emit headers, not only the lexical one.
+
+    This was committed without the chroma half and nothing noticed, because no
+    chroma test asserted on the header. The lexical backend and a stub carried
+    the citation tests, so the backend that actually serves the published index
+    was the one left unverified.
+    """
+    from cellimo.retrieval.citations import parse
+
+    reference = open_index(chroma_index).get_reference(f"notebook:{NOTEBOOK_ID}")
+    code = next(s for s in reference.sections if s.kind == "code")
+    (citation,) = parse(code.content)
+    assert citation.reference_id == f"notebook:{NOTEBOOK_ID}"
+    assert citation.section_id == code.section_id
+    assert code.content.rstrip().endswith("sc.pp.filter_cells(adata, min_genes=200)")
+
+    raw = open_index(chroma_index).get_reference(
+        f"notebook:{NOTEBOOK_ID}", with_provenance=False
+    )
+    assert parse(next(s for s in raw.sections if s.kind == "code").content) == []
+
+
 def test_get_reference_selects_sections(chroma_index: Path) -> None:
     reference = open_index(chroma_index).get_reference(f"notebook:{NOTEBOOK_ID}", ["1"])
     assert [section.section_id for section in reference.sections] == ["1"]

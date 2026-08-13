@@ -44,6 +44,7 @@ from typing import Any
 
 from cellimo.errors import ReferenceNotFoundError, RetrievalError
 from cellimo.retrieval.base import KnowledgeIndex
+from cellimo.retrieval.citations import attach_headers
 from cellimo.retrieval.diversify import diversify
 from cellimo.retrieval.ids import (
     chunk_reference_id,
@@ -416,12 +417,18 @@ class ChromaKnowledgeIndex(KnowledgeIndex):
     # -- references --------------------------------------------------------
 
     def get_reference(
-        self, reference_id: str, section_ids: Sequence[str] | None = None
+        self,
+        reference_id: str,
+        section_ids: Sequence[str] | None = None,
+        *,
+        with_provenance: bool = True,
     ) -> Reference:
         parsed = parse_reference_id(reference_id)
         if parsed.kind == "notebook":
-            return self._notebook_reference(parsed.identifier, section_ids)
-        return self._chunk_reference(parsed.collection, parsed.identifier)
+            reference = self._notebook_reference(parsed.identifier, section_ids)
+        else:
+            reference = self._chunk_reference(parsed.collection, parsed.identifier)
+        return attach_headers(reference) if with_provenance else reference
 
     def _notebook_reference(
         self, notebook_id: str, section_ids: Sequence[str] | None
