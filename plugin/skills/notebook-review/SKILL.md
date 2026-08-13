@@ -53,8 +53,10 @@ upregulated" with nothing in `statistics.jsonl` is unsupported.
 **Was the same contrast tested more than once?** Look for repeated tests of one
 comparison with different parameters and only the last one reported.
 
-**Are the references real?** Every `reference_id` should resolve through
-`get_reference`. A citation that does not resolve is decoration.
+**Are the references real?** Start with S009: it scopes
+`# cellimo:source` headers to analysis cells and resolves them. Inspect every
+uncited, malformed, unknown, or drifted cell it names. A citation that does not
+resolve is decoration.
 
 ## 4. Read the notebook itself
 

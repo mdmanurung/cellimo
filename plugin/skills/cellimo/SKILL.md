@@ -56,16 +56,25 @@ Repeat, one objective at a time:
    live notebook state (marimo-pair).
 2. **Define one scientific objective.** Say it out loud in a sentence. If you
    cannot, you are about to write code without knowing why.
-3. **Retrieve** — `search_workflows` for how this step is really done, then
-   `get_reference` for the exact cells. Do not work from the summary.
-4. **Write a bounded notebook section** — one stage, visible code, no hidden
-   helper that does five things.
-5. **Execute** through marimo-pair and read the actual output.
-6. **Record** — parameters, decisions and references, through the Cellimo API in
-   the notebook (`project.record_decision(...)`, `project.record_reference(...)`,
-   `project.stage(...)`).
-7. **Continue, revise, or stop.** Stop and ask when the next step depends on
-   something only the user knows.
+3. **Ground one cell** — call `ground` for the objective. If
+   `needs_user_decision=true`, stop and ask. Compare `api_usage` with
+   `in_practice`; do not work from a search summary.
+4. **Adapt in working memory** — one visible, bounded cell. Keep every applicable
+   `# cellimo:source` header exactly as returned.
+5. **Preflight the exact candidate** — call `ground` again with the proposed
+   source as `candidate_code`. Do not create the cell unless
+   `candidate_reviewed=true` and `needs_user_decision=false`. A native-function
+   disagreement or unavailable required check goes to the user, never around
+   the gate.
+6. **Create and execute** through marimo-pair `create_cell` and `run_cell`, then
+   read the actual cell status and output. One grounding result applies to one
+   scientific code cell.
+7. **Record** — parameters and decisions through the Cellimo API in the notebook
+   (`project.record_decision(...)`, `project.stage(...)`). The source header is
+   the code cell's reference; use `record_reference` for relevant non-code
+   sources, not as a substitute for the header.
+8. **Continue, revise, or stop.** A grounded cell that errors is grounded again
+   with the error and intended fix before editing; do not guess through retries.
 
 ## 4. Scientific invariants
 
@@ -123,3 +132,4 @@ Then `cellimo check`. If it reports an error, fix the analysis — not the recor
 - Do not carry one mutable global `adata` across stages. Each stage reads its
   parent artifact and writes a new one.
 - Do not claim a result the provenance does not support.
+- Do not create or edit a scientific code cell before both grounding calls pass.

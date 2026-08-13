@@ -199,8 +199,9 @@ def _(design, mo):
         f"""
         ### 5. Analysis plan
 
-        One objective at a time. For each step: retrieve references, write a
-        bounded section, run it, inspect the output, record what was decided.
+        One objective at a time. For each scientific cell: call `ground`, adapt
+        one cited section, preflight the exact candidate with `ground` again,
+        create and run it through marimo-pair, then inspect the output.
 
         | Stage | Status |
         | --- | --- |
@@ -215,7 +216,8 @@ def _(design, mo):
         Invariants enforced by `cellimo check`: raw counts identified; QC
         stratified by sample; every exclusion recorded; cells are not biological
         replicates; differential expression does not consume batch-corrected
-        values; lineage closes on the source.
+        values; lineage closes on the source; scientific cells carry resolvable
+        `# cellimo:source` headers.
         """
     )
     return

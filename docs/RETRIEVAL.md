@@ -185,6 +185,12 @@ the main index, so `index_status` and notebook lookups never pay for it.
 
 ## Recording what you used
 
+For adapted code, keep the `# cellimo:source` header returned by `ground` in the
+same Marimo cell. `cellimo check` S009 scopes citations to cells, reports
+uncited scientific cells, and resolves each header against the installed index.
+The append-only reference ledger remains useful for papers, documentation, and
+decisions that inform the analysis but are not themselves adapted code:
+
 ```python
 project.record_reference(
     reference_id="notebook:scverse_scanpy_pbmc3k_qc",
@@ -199,8 +205,9 @@ project.record_reference(
 ```
 
 `cellimo check` warns (`S006`) when a decision cites a reference that is not in
-`references.jsonl`, and (`C013`) when confirmatory analyses exist with no
-references recorded at all.
+`references.jsonl`, (`S009`) when grounded code has no resolvable cell header,
+and (`C013`) when confirmatory analyses exist with no references recorded at
+all.
 
 ## Building your own lexical index
 

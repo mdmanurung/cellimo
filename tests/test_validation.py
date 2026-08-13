@@ -99,6 +99,12 @@ def _codes(project: Project, severity: str = "error") -> set[str]:
     }
 
 
+def _citation_findings(project: Project):
+    from cellimo.validation.engine import run_checks
+
+    return run_checks(project, only=["S009"]).findings
+
+
 # -- the clean case --------------------------------------------------------
 
 
@@ -338,6 +344,106 @@ def test_untouched_artifacts_are_not_re_hashed(project: Project, monkeypatch) ->
     monkeypatch.setattr(checks_module, "hash_file", counting_hash_file)
     project.check()
     assert calls == [], f"re-hashed unchanged artifacts: {calls}"
+
+
+def test_uncited_analysis_cell_is_visible_to_cellimo_check(project: Project) -> None:
+    project.notebook_path.write_text(
+        """\
+@app.cell
+def _(adata, sc):
+    sc.pp.normalize_total(adata)
+    return
+""",
+        encoding="utf-8",
+    )
+
+    findings = _citation_findings(project)
+    assert len(findings) == 1
+    assert findings[0].title == "Scientific notebook cell has no grounding citation"
+    assert "sc.pp.normalize_total" in findings[0].detail
+
+
+def test_one_cited_cell_does_not_cover_the_next_uncited_cell(
+    project: Project,
+    fixture_index: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from cellimo.retrieval.lexical_index import LexicalKnowledgeIndex
+
+    monkeypatch.setenv("CELLIMO_INDEX_DIR", str(fixture_index))
+    reference = LexicalKnowledgeIndex(fixture_index).get_reference(
+        "notebook:scverse_scanpy_pbmc3k_qc", ["1"]
+    )
+    header = reference.sections[0].content.splitlines()[0]
+    project.notebook_path.write_text(
+        f"""\
+@app.cell
+def _(adata, sc):
+    {header}
+    sc.pp.filter_cells(adata, min_genes=250)
+    return
+
+@app.cell
+def _(adata, sc):
+    sc.pp.normalize_total(adata)
+    return
+""",
+        encoding="utf-8",
+    )
+
+    findings = _citation_findings(project)
+    assert len(findings) == 1
+    assert findings[0].title == "Scientific notebook cell has no grounding citation"
+    assert findings[0].location.endswith(":8")
+
+
+def test_a_resolvable_cited_analysis_cell_passes_the_citation_audit(
+    project: Project,
+    fixture_index: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from cellimo.retrieval.lexical_index import LexicalKnowledgeIndex
+
+    monkeypatch.setenv("CELLIMO_INDEX_DIR", str(fixture_index))
+    reference = LexicalKnowledgeIndex(fixture_index).get_reference(
+        "notebook:scverse_scanpy_pbmc3k_qc", ["1"]
+    )
+    header = reference.sections[0].content.splitlines()[0]
+    project.notebook_path.write_text(
+        f"""\
+@app.cell
+def _(adata, sc):
+    {header}
+    sc.pp.filter_cells(adata, min_genes=250)
+    return
+""",
+        encoding="utf-8",
+    )
+
+    assert _citation_findings(project) == []
+
+
+def test_a_drifted_notebook_citation_is_reported(
+    project: Project,
+    fixture_index: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CELLIMO_INDEX_DIR", str(fixture_index))
+    project.notebook_path.write_text(
+        """\
+@app.cell
+def _(adata, sc):
+    # cellimo:source notebook:scverse_scanpy_pbmc3k_qc section=1 sha=000000000000
+    sc.pp.filter_cells(adata, min_genes=250)
+    return
+""",
+        encoding="utf-8",
+    )
+
+    findings = _citation_findings(project)
+    assert len(findings) == 1
+    assert findings[0].title == "Notebook grounding citation does not resolve"
+    assert "source now hashes" in findings[0].detail
 
 
 def test_exclusion_arithmetic_is_reconciled(project: Project) -> None:
@@ -712,7 +818,19 @@ def test_a_real_autonomous_authorisation_is_accepted_with_a_warning(
 
 @pytest.mark.parametrize(
     "code",
-    ["S003", "S004", "S005", "C001", "C003", "C004", "C005", "C006", "C008", "C010"],
+    [
+        "S003",
+        "S004",
+        "S005",
+        "S009",
+        "C001",
+        "C003",
+        "C004",
+        "C005",
+        "C006",
+        "C008",
+        "C010",
+    ],
 )
 def test_every_required_check_is_still_registered(code: str) -> None:
     """A smoke test that nothing was dropped from the registry — nothing more.
@@ -737,7 +855,7 @@ def test_every_registered_check_runs_against_a_real_project(project: Project) ->
     import cellimo.validation.checks  # noqa: F401  (registers the checks)
     from cellimo.validation.engine import CHECKS, ValidationContext
 
-    assert len(CHECKS) >= 21
+    assert len(CHECKS) >= 22
     context = ValidationContext(project)
     for check in CHECKS:
         assert check.title

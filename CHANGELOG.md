@@ -36,7 +36,7 @@ listed that is not.
 
 **Validation**
 
-- `cellimo check` — 21 checks over structured provenance (8 structural, 13
+- `cellimo check` — 22 checks (9 structural, 13
   scientific), non-zero exit on errors, `--json` output, `--only` filtering.
 - Errors on: no experimental unit, confirmatory analysis before design approval,
   unidentified raw counts, cells registered as biological replicates, a group
@@ -44,7 +44,8 @@ listed that is not.
   values, broken artifact lineage, missing or modified artifacts, and exclusion
   counts that do not reconcile.
 - Warnings on: unstratified QC, unjustified integration, missing effect sizes or
-  uncertainty, uncaptured environment, unrecorded references.
+  uncertainty, uncaptured environment, unrecorded references, and scientific
+  notebook cells with missing, malformed, or unresolvable grounding citations.
 - Every rule has a *recorded* escape hatch rather than a silencing flag.
 
 **Retrieval**

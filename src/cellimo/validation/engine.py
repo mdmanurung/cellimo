@@ -1,8 +1,9 @@
 """The validation engine behind ``cellimo check``.
 
-Every check is a pure function over structured provenance. None of them read the
-notebook source, grep for function names, or infer intent from prose: a project
-either recorded the fact that makes an analysis defensible, or it did not.
+Every scientific check is a pure function over structured provenance. One
+structural check (S009) reads Marimo cell boundaries and citation comments to
+measure whether grounding happened; it does not execute the notebook or infer a
+scientific claim from prose.
 
 Findings carry a stable code (``S###`` structural, ``C###`` scientific), a
 severity, the record they point at, and a remedy. ``cellimo check`` exits

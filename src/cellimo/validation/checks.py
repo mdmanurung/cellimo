@@ -20,6 +20,10 @@ from pathlib import Path
 
 from cellimo.artifacts.descriptor import ArtifactDescriptor
 from cellimo.config import DesignSection
+from cellimo.retrieval.base import open_index
+from cellimo.retrieval.citations import analysis_cells, malformed_headers
+from cellimo.retrieval.citations import parse as parse_citations
+from cellimo.retrieval.citations import resolve as resolve_citations
 from cellimo.schema import INTEGRATED_REPRESENTATIONS
 from cellimo.util.hashing import hash_file, short_hash
 from cellimo.validation.engine import Finding, ValidationContext, register
@@ -442,6 +446,86 @@ def check_artifact_hashes(context: ValidationContext) -> list[Finding]:
                     ),
                     location=f"artifact:{descriptor.artifact_id}",
                     remedy="Register the new file as a new artifact instead of overwriting.",
+                )
+            )
+    return findings
+
+
+@register("S009", "Scientific notebook cells carry resolvable grounding citations")
+def check_notebook_citations(context: ValidationContext) -> list[Finding]:
+    """Audit citation coverage without executing or semantically reading cells."""
+    relative = context.config.paths.notebook
+    path = context.project.root / relative
+    if not path.is_file():
+        return []  # The CLI's notebook check owns a missing notebook.
+    try:
+        source = path.read_text(encoding="utf-8")
+        cells = analysis_cells(source)
+    except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+        return [
+            Finding(
+                code="S009",
+                severity="warning",
+                title="Grounding citations could not be audited",
+                detail=f"{relative} could not be parsed for cell citations: {exc}",
+                location=f"notebook:{relative}",
+                remedy="Repair the notebook, then run `cellimo check` again.",
+            )
+        ]
+
+    findings = [
+        Finding(
+            code="S009",
+            severity="warning",
+            title="Scientific notebook cell has no grounding citation",
+            detail=(
+                f"the analysis cell at lines {cell.line}-{cell.end_line} has no "
+                "# cellimo:source header"
+                + (f"; calls include {', '.join(cell.calls[:5])}" if cell.calls else "")
+            ),
+            location=f"notebook:{relative}:{cell.line}",
+            remedy=(
+                "Ground this objective, adapt a returned section with its header, "
+                "preflight the exact candidate_code, then replace the cell through "
+                "marimo-pair."
+            ),
+        )
+        for cell in cells
+        if not cell.citations
+    ]
+
+    for line in malformed_headers(source):
+        findings.append(
+            Finding(
+                code="S009",
+                severity="warning",
+                title="Notebook citation header is malformed",
+                detail=(
+                    "the line contains cellimo:source but not the required "
+                    "'<reference> section=<id> sha=<12 hex>' form"
+                ),
+                location=f"notebook:{relative}:{line}",
+                remedy="Replace it with the exact header returned by `ground`.",
+            )
+        )
+
+    cited = parse_citations(source)
+    if cited:
+        for status in resolve_citations(cited, open_index()):
+            if status.ok:
+                continue
+            citation = status.citation
+            findings.append(
+                Finding(
+                    code="S009",
+                    severity="warning",
+                    title="Notebook grounding citation does not resolve",
+                    detail=status.detail,
+                    location=f"notebook:{relative}:{citation.line}",
+                    remedy=(
+                        "Install the cited index version or ground and adapt the cell "
+                        "again from a source that resolves."
+                    ),
                 )
             )
     return findings

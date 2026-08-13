@@ -4,7 +4,7 @@ A grounded analysis is one whose code was adapted from work that ran, rather
 than recalled by a language model. That claim is only worth anything if it can
 be checked, so the claim travels with the code::
 
-    # cellimo:source notebook:theislab_scib_pbmc section=12 sha=a1de8044
+    # cellimo:source notebook:theislab_scib_pbmc section=12 sha=a1de8044c91f
     sc.pp.calculate_qc_metrics(adata, qc_vars=["mt"], inplace=True)
 
 Three properties this format is chosen for, in order of how much they matter:
@@ -29,6 +29,7 @@ exactly the kind of guarantee that looks real and is not.
 
 from __future__ import annotations
 
+import ast
 import re
 from enum import StrEnum
 
@@ -44,8 +45,11 @@ __all__ = [
     "Citation",
     "CitationState",
     "CitationStatus",
+    "CitedAnalysisCell",
+    "analysis_cells",
     "attach_headers",
     "format_header",
+    "malformed_headers",
     "parse",
     "resolve",
     "section_sha",
@@ -58,8 +62,54 @@ CITATION_SHA_LENGTH = 12
 _HEADER = re.compile(
     r"^\s*#\s*cellimo:source\s+(?P<reference_id>\S+)"
     r"\s+section=(?P<section_id>\S+)"
-    r"\s+sha=(?P<sha>[0-9a-fA-F]+)\s*$"
+    rf"\s+sha=(?P<sha>[0-9a-fA-F]{{{CITATION_SHA_LENGTH}}})\s*$"
 )
+
+_DATA_NAMES = re.compile(
+    r"^_?(?:adata|adatas|anndata|mdata|mudata|sdata|spatialdata|filtered|pseudobulk)(?:_|$)",
+    re.IGNORECASE,
+)
+_SCIENTIFIC_MODULES = frozenset(
+    {
+        "anndata",
+        "cellrank",
+        "decoupler",
+        "matplotlib",
+        "mudata",
+        "numpy",
+        "pandas",
+        "pertpy",
+        "pydeseq2",
+        "scanpy",
+        "scipy",
+        "scvi",
+        "seaborn",
+        "squidpy",
+        "statsmodels",
+    }
+)
+_SCIENTIFIC_METHODS = frozenset(
+    {
+        "boxplot",
+        "describe",
+        "fit",
+        "groupby",
+        "heatmap",
+        "hist",
+        "mean",
+        "median",
+        "plot",
+        "quantile",
+        "scatter",
+        "sum",
+        "transform",
+        "value_counts",
+        "violinplot",
+        "write_h5ad",
+        "write_zarr",
+    }
+)
+_ANNDATA_ATTRIBUTES = frozenset({"X", "layers", "obs", "obsm", "obsp", "raw", "var", "varm"})
 
 
 def section_sha(content: str) -> str:
@@ -144,6 +194,17 @@ class CitationStatus(BaseModel):
         return self.state is CitationState.RESOLVED
 
 
+class CitedAnalysisCell(BaseModel):
+    """One Marimo analysis cell and the citations scoped to that cell."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    line: int
+    end_line: int
+    calls: list[str]
+    citations: list[Citation]
+
+
 def parse(source: str) -> list[Citation]:
     """Every citation header in a notebook, in the order they appear.
 
@@ -165,6 +226,112 @@ def parse(source: str) -> list[Citation]:
             )
         )
     return citations
+
+
+def malformed_headers(source: str) -> list[int]:
+    """Line numbers that look like citation headers but do not parse."""
+    return [
+        number
+        for number, line in enumerate(source.splitlines(), start=1)
+        if "cellimo:source" in line and _HEADER.match(line) is None
+    ]
+
+
+def analysis_cells(source: str) -> list[CitedAnalysisCell]:
+    """Marimo cells that clearly perform scientific computation or plotting.
+
+    This is deliberately structural and conservative. A cell is included when
+    it touches a recognisable single-cell object, calls a scientific package
+    (including an arbitrary import alias), or uses a common tabulation/modelling
+    method. Marimo UI, markdown, imports, and pure Cellimo bookkeeping are left
+    alone. Citations are scoped by the function's line range, so a header in one
+    cell cannot cover the next.
+    """
+    tree = ast.parse(source)
+    citations = parse(source)
+    cells: list[CitedAnalysisCell] = []
+    for node in tree.body:
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            continue
+        if not any(_is_cell_decorator(item) for item in node.decorator_list):
+            continue
+        aliases = _scientific_aliases(node)
+        if not _is_analysis_cell(node, aliases):
+            continue
+        end_line = node.end_lineno or node.lineno
+        cell_citations = [
+            citation
+            for citation in citations
+            if node.lineno <= citation.line <= end_line
+        ]
+        cells.append(
+            CitedAnalysisCell(
+                line=node.lineno,
+                end_line=end_line,
+                calls=sorted(_cell_calls(node)),
+                citations=cell_citations,
+            )
+        )
+    return cells
+
+
+def _is_cell_decorator(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and node.attr == "cell"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "app"
+    )
+
+
+def _scientific_aliases(node: ast.AST) -> set[str]:
+    aliases: set[str] = set()
+    for item in ast.walk(node):
+        if isinstance(item, ast.Import):
+            for name in item.names:
+                root = name.name.split(".", 1)[0]
+                if root in _SCIENTIFIC_MODULES:
+                    aliases.add(name.asname or root)
+        elif isinstance(item, ast.ImportFrom):
+            root = (item.module or "").split(".", 1)[0]
+            if root in _SCIENTIFIC_MODULES:
+                aliases.update(name.asname or name.name for name in item.names)
+    return aliases
+
+
+def _cell_calls(node: ast.AST) -> set[str]:
+    calls: set[str] = set()
+    for item in ast.walk(node):
+        if not isinstance(item, ast.Call):
+            continue
+        parts: list[str] = []
+        current: ast.expr = item.func
+        while isinstance(current, ast.Attribute):
+            parts.append(current.attr)
+            current = current.value
+        if isinstance(current, ast.Name):
+            parts.append(current.id)
+            calls.add(".".join(reversed(parts)))
+        elif isinstance(item.func, ast.Attribute):
+            calls.add(item.func.attr)
+    return calls
+
+
+def _is_analysis_cell(node: ast.AST, aliases: set[str]) -> bool:
+    for item in ast.walk(node):
+        if isinstance(item, ast.Name) and _DATA_NAMES.match(item.id):
+            return True
+        if isinstance(item, ast.Attribute) and (
+            item.attr in _ANNDATA_ATTRIBUTES or item.attr in _SCIENTIFIC_METHODS
+        ):
+            return True
+        if isinstance(item, ast.Call):
+            root = item.func
+            while isinstance(root, ast.Attribute):
+                root = root.value
+            if isinstance(root, ast.Name) and root.id in aliases:
+                return True
+    return False
 
 
 def resolve(

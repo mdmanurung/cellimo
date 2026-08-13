@@ -112,6 +112,7 @@ def test_headers_are_found_with_their_line_numbers() -> None:
     [
         "# cellimo:source notebook:a section=3",  # no sha
         "# cellimo:source notebook:a sha=abc123",  # no section
+        "# cellimo:source notebook:a section=3 sha=abc123",  # short sha
         "# cellimo source notebook:a section=3 sha=abc123",  # not the marker
         "sc.pp.log1p(adata)  # cellimo:source notebook:a section=3 sha=abc1",
     ],
@@ -123,6 +124,66 @@ def test_a_malformed_or_trailing_header_is_not_a_citation(line: str) -> None:
 
 def test_a_notebook_with_no_headers_yields_nothing() -> None:
     assert C.parse("sc.pp.log1p(adata)\nsc.tl.leiden(adata)") == []
+
+
+def test_citations_are_scoped_to_the_analysis_cell_that_contains_them() -> None:
+    sha = C.section_sha(CODE)
+    source = f'''\
+@app.cell
+def _(adata, sc):
+    # cellimo:source notebook:x section=1 sha={sha}
+    sc.pp.filter_cells(adata, min_genes=200)
+    return
+
+@app.cell
+def _(adata, sc):
+    sc.pp.normalize_total(adata)
+    return
+'''
+
+    cells = C.analysis_cells(source)
+    assert len(cells) == 2
+    assert [len(cell.citations) for cell in cells] == [1, 0]
+    assert "sc.pp.normalize_total" in cells[1].calls
+
+
+def test_ui_and_cellimo_bookkeeping_are_not_analysis_cells() -> None:
+    source = '''\
+@app.cell
+def _(mo, project):
+    button = mo.ui.run_button(label="run")
+    project.write_manifest()
+    mo.md(f"{button}")
+    return (button,)
+'''
+    assert C.analysis_cells(source) == []
+
+
+def test_scientific_import_aliases_do_not_evade_cell_detection() -> None:
+    source = '''\
+@app.cell
+def _(adata):
+    import scanpy as unusual_name
+    unusual_name.pp.normalize_total(adata)
+    return
+'''
+    (cell,) = C.analysis_cells(source)
+    assert "unusual_name.pp.normalize_total" in cell.calls
+
+
+def test_malformed_header_lines_are_reported() -> None:
+    source = "# cellimo:source notebook:x section=1\nprint('x')"
+    assert C.malformed_headers(source) == [1]
+
+
+def test_generated_template_audit_is_limited_to_its_two_qc_cells() -> None:
+    """UI, design approval, artifacts and provenance must not become noise."""
+    from cellimo.resources import template_path
+
+    cells = C.analysis_cells(template_path("analysis.py").read_text(encoding="utf-8"))
+    assert len(cells) == 2
+    assert any("_filtered.write_h5ad" in cell.calls for cell in cells)
+    assert any("_plt.subplots" in cell.calls for cell in cells)
 
 
 # -- resolution ------------------------------------------------------------

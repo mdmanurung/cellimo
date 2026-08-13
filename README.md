@@ -239,9 +239,10 @@ returns an empty result with an explanation rather than pretending. See
 
 ## Scientific safeguards
 
-`cellimo check` validates a project structurally and scientifically, over
-structured provenance rather than over source text, and exits non-zero on
-errors.
+`cellimo check` validates a project structurally and scientifically. Scientific
+claims are checked against structured provenance; S009 additionally audits
+Marimo cell boundaries and `# cellimo:source` comments so ungrounded code is
+visible. It exits non-zero on errors.
 
 It refuses, as errors:
 
@@ -260,9 +261,10 @@ the command to check it yourself, rather than re-read on every `check`. See
 [docs/VALIDATION.md](docs/VALIDATION.md).)
 
 It warns about unstratified QC, unjustified integration, missing effect sizes,
-missing references and an uncaptured environment. Every rule has an explicit
-escape hatch that must be *recorded* — a stated justification downgrades an
-error to a warning, so defensible unusual work is possible and visible.
+missing references, uncited scientific cells and an uncaptured environment.
+Every scientific exception has an explicit escape hatch that must be *recorded*
+— a stated justification downgrades an error to a warning, so defensible unusual
+work is possible and visible.
 
 ```bash
 cellimo check            # human-readable

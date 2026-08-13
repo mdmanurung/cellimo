@@ -38,9 +38,9 @@ to end, ending with the validator refusing the same comparison run per cell.
   - JSONL that is never rewritten. A crash costs at most the record being
     written.
 * - **Validates the science**
-  - 21 checks. Pseudoreplication, differential expression on batch-corrected
-    values, unstratified quality control, unidentified raw counts — each keyed
-    on the structure of the record, never on what you named your test.
+  - 22 checks. Scientific rules key on structured records, never on what a test
+    was named; one structural rule also makes uncited Marimo analysis cells
+    visible.
 * - **Serves read-only knowledge**
   - An MCP server the agent can search for real analysis workflows. It cannot
     execute Python, start a kernel, or edit your notebook.

@@ -118,6 +118,33 @@ def test_cellimo_skills_do_not_claim_to_run_code() -> None:
         assert "_code_mode" not in skill_file.read_text(encoding="utf-8"), skill_file
 
 
+def test_scientific_skills_require_grounding_before_cell_creation() -> None:
+    root = plugin_root() / "skills"
+    for name in ("project-audit", "quality-control", "statistics"):
+        text = (root / name / "SKILL.md").read_text(encoding="utf-8")
+        for contract in (
+            "needs_user_decision",
+            "candidate_code",
+            "candidate_reviewed=true",
+            "# cellimo:source",
+            "`create_cell`",
+            "`run_cell`",
+        ):
+            assert contract in text, f"{name} omits {contract}"
+        assert text.index("candidate_code") < text.index("`create_cell`"), name
+        assert "search_workflows" not in text, name
+
+
+def test_router_uses_the_same_grounding_contract() -> None:
+    text = (plugin_root() / "skills" / "cellimo" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "candidate_code" in text
+    assert "candidate_reviewed=true" in text
+    assert "needs_user_decision=false" in text
+    assert text.index("candidate_code") < text.index("`create_cell`")
+
+
 # -- vendored marimo-pair --------------------------------------------------
 
 

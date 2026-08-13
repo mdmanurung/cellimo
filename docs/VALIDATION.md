@@ -3,9 +3,10 @@
 `cellimo check` answers one question: **could this project support the claims
 being made from it?**
 
-Every rule is a predicate over structured provenance. None of them read the
-notebook source, grep for function names, or infer intent from prose. A project
-either recorded the fact that makes an analysis defensible, or it did not.
+Scientific rules are predicates over structured provenance; they do not infer
+intent from notebook prose or function names. One structural rule, S009, reads
+Marimo cell boundaries and citation comments to measure grounding compliance.
+It does not execute the notebook.
 
 ```bash
 cellimo check              # human-readable
@@ -39,6 +40,7 @@ the analysis is still open.
 | `S006` | Cited references are recorded |
 | `S007` | Environment was captured |
 | `S008` | Artifact hashes match their files |
+| `S009` | Scientific notebook cells carry resolvable grounding citations |
 
 `S004` walks `parent_sha256` backwards from every artifact and fails when the
 chain does not terminate at the registered source, contains an unregistered
@@ -54,6 +56,15 @@ the fast path, ordinary notebook interaction would re-hash every checkpoint. The
 comparison is exact, not tolerance-based, so a same-size overwrite in the same
 second is still caught. It is a correctness aid, not a security control —
 whoever can write the file can also set its mtime.
+
+`S009` recognises Marimo `@app.cell` functions, scopes each
+`# cellimo:source` header to the cell containing it, and warns when a clearly
+scientific cell has none. UI, markdown, import-only, and pure Cellimo
+bookkeeping cells are excluded. Existing headers are resolved against the
+installed index and their section hashes checked; malformed, missing, unknown,
+or drifted citations remain visible as warnings. This measures whether the
+mandatory grounding loop happened. It does not prove that an adaptation was a
+good scientific choice.
 
 ### Scientific
 

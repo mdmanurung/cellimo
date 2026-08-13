@@ -12,24 +12,52 @@ Two questions must be settled before anything else: **where are the unmodified
 counts**, and **what is the biological replicate**. Everything downstream is
 uninterpretable without both.
 
-## Run the audit
+## Run the deterministic audit
 
-In the notebook (section 3 of `analysis.py` does this already):
+Section 3 of `analysis.py` already calls Cellimo's own project API:
 
 ```python
 audit = project.audit_anndata(backed=True)
 audit.summary_lines()
 ```
 
-It reads in backed mode and samples the matrix, so a 40 GB object costs seconds.
-It writes a report under `provenance/audits/` and registers it as an artifact.
+This is Cellimo bookkeeping rather than a corpus-derived scientific method. It
+reads in backed mode, samples the matrix, writes a report under
+`provenance/audits/`, and registers it as an artifact. It does not need a source
+header. Do not replace it with custom HDF5 inspection.
 
-## Read it properly
+## Ground every scientific inspection cell
 
-- `audit.raw_counts` — `available`, `location` (`X`, `layers/counts`, `raw/X`)
-  and the evidence. If `available` is false, stop and resolve it. Either the
-  counts are somewhere the audit did not look, or the object is already
-  normalised. In the second case set, with a reason:
+Any additional cell that cross-tabulates, summarises, or plots the dataset is a
+scientific code cell. Before creating each one:
+
+1. Call `ground` for one objective with concrete column names and likely native
+   APIs. Example query shape: `AnnData experimental design donor sample
+   condition batch cross tabulation pandas.crosstab confounding` with
+   `analysis_mode="exploratory"`.
+2. If `needs_user_decision` is true, stop and show the user the note and relevant
+   findings. Do not invent an inspection because no applicable source survived.
+3. Read both `api_usage` and `in_practice`, then adapt one bounded cell in
+   working memory. Preserve every applicable `# cellimo:source ... section=...
+   sha=...` line exactly.
+4. Call `ground` again with the same objective and the exact proposed cell as
+   `candidate_code`. Require `candidate_reviewed=true` and
+   `needs_user_decision=false` before creating it.
+5. Escalate any native-function disagreement or unavailable required check to
+   the user. The agent cannot waive it.
+6. Only then use marimo-pair `create_cell` and `run_cell`; inspect the status
+   and output before drawing a design conclusion.
+
+One grounding result applies to one scientific cell. Pure calls to
+`record_design`, `approve_design`, or other Cellimo provenance APIs are
+bookkeeping; a cell that also analyses data is not exempt.
+
+## Read the audit properly
+
+- `audit.raw_counts` reports availability, location (`X`, `layers/counts`, or
+  `raw/X`), and evidence. If unavailable, stop and resolve whether counts exist
+  elsewhere or were discarded upstream. In the latter case, record the
+  limitation explicitly:
 
   ```python
   project.config.source = project.config.source.model_copy(update={
@@ -39,28 +67,25 @@ It writes a report under `provenance/audits/` and registers it as an artifact.
   project.save()
   ```
 
-  That downgrades the check to a warning and makes the limitation travel with
-  the project. Count models (DESeq2, edgeR) are then off the table — say so.
+  Count models are then unavailable; say that plainly.
 
-- `audit.design_candidates` — proposals, with evidence and confidence. They are
-  name-and-cardinality heuristics, not knowledge. Verify each against the actual
-  values before proposing it.
+- `audit.design_candidates` are heuristic proposals based on names and
+  cardinalities. Verify their actual values before proposing them.
 
-- `audit.obs_columns` — cardinality matters. A column with one level cannot
-  define a comparison; a column with roughly one level per cell is an
-  identifier, not a design factor.
+- `audit.obs_columns` exposes cardinality. A one-level column cannot define a
+  comparison; a near-cell-unique column is an identifier, not a design factor.
 
 ## Propose the design
 
-Ask, do not assume:
+Ask rather than assume:
 
-- Which column identifies the **donor / participant**? That is usually the
+- Which column identifies the donor or participant? That is usually the
   experimental unit.
-- Which identifies the **sample / library**? Several samples may come from one
-  donor — then the donor is the unit, not the sample.
-- Which is the **condition** being compared, and is it confounded with batch?
-  Cross-tabulate before answering. A condition perfectly confounded with batch
-  cannot be separated from it by any amount of integration.
+- Which identifies the sample or library? Several samples may come from one
+  donor, so sample is not automatically the unit.
+- Which condition is being compared, and is it confounded with batch? Ground
+  and run the cross-tabulation before answering. Integration cannot identify a
+  contrast that is perfectly confounded.
 
 ```python
 project.record_design(
@@ -69,29 +94,29 @@ project.record_design(
 )
 ```
 
-This records a *proposal*. Inferential analysis stays blocked.
+This records a proposal. Inferential analysis remains blocked.
 
-## Get it approved
+## Get user approval
 
-Approval is the user's, not yours:
+Approval belongs to the user:
 
 ```python
 project.approve_design(approved_by="<the person's name>")
 ```
 
-Only if the user has explicitly authorised you to proceed unattended:
+Only explicit unattended authorisation permits:
 
 ```python
 project.authorize_autonomous("reason the user gave")
 project.record_design(..., approve=True, approved_by="autonomous_authorization")
 ```
 
-Both paths are written to `decisions.jsonl`. Editing an approved design revokes
-approval, because the comparison changed and the sign-off no longer applies.
+Both routes are written to `decisions.jsonl`. Editing an approved design revokes
+approval because the comparison changed.
 
 ## Report back
 
-State plainly: the shape, where counts live, the design columns with their level
-counts, the number of independent units per condition, and any confounding you
-found. If a condition has fewer than two donors, say now that no inferential
-test will support a claim about it — before anyone spends a day on it.
+State the shape, raw-count location, design columns with level counts, number of
+independent units per condition, and any confounding. If a condition has fewer
+than two donors, say immediately that no inferential test can support a claim
+about it.

@@ -9,52 +9,77 @@ allowed-tools: Bash(cellimo *), Read, Skill
 ---
 
 Quality control removes data. Every removal is a scientific claim that those
-cells were not measuring what you wanted, so every removal is recorded with its
-reason, its counts, and its per-sample breakdown.
+cells were not measuring what you wanted, so every removal is grounded,
+sample-stratified, inspected, and recorded.
+
+## Ground every scientific code cell
+
+A scientific code cell reads, transforms, filters, summarises, or plots the
+single-cell data. Before creating **each** such cell:
+
+1. Call `ground` with one concrete objective, the modality, and likely native
+   API names. For example: `quality control per sample
+   sc.pp.calculate_qc_metrics sc.pl.violin sc.pp.filter_cells mitochondrial`.
+   Use `analysis_mode="exploratory"`.
+2. If `needs_user_decision` is true, stop. Show the user the note and relevant
+   rejected findings. Do not replace missing or rejected precedent with code
+   from memory.
+3. Read both `api_usage` and `in_practice`. Tutorials establish the native API;
+   paper companions show how it is used on real data. Adapt one bounded cell in
+   working memory and keep every applicable `# cellimo:source ... section=...
+   sha=...` line exactly as returned.
+4. Call `ground` again with the same objective and the **exact proposed cell**
+   as `candidate_code`. Do not create the cell unless
+   `candidate_reviewed=true` and `needs_user_decision=false`.
+5. If the preflight names a native alternative, ask the user whether to use it
+   or retain the custom implementation. The agent may explain the trade-off;
+   it may not override the finding.
+6. Only now load marimo-pair, call `create_cell`, then `run_cell`, and inspect
+   the cell status and output. One grounding result authorises one cell, not a
+   whole QC section.
+
+Calls that only write Cellimo provenance are bookkeeping, not scientific code
+cells. A cell that both filters data and records it is scientific and still
+needs the source header and candidate preflight.
 
 ## Look before thresholding
 
-Plot the three distributions **per sample**, not pooled:
+Plot these distributions per sample, never only pooled:
 
-- genes per cell
-- counts per cell
-- percentage of mitochondrial counts
+- genes per cell;
+- counts per cell;
+- percentage of mitochondrial counts.
 
 Pooling hides the thing you are looking for. A sample sequenced half as deeply
 as the others has a legitimately lower count distribution; a global threshold
-deletes most of it and keeps the rest, which is a batch effect you created
-yourself.
+deletes most of it and keeps the rest, creating a batch effect.
+
+Prefer a grounded package-native plot when it expresses the required grouping.
+Do not build a Matplotlib or seaborn equivalent merely for styling convenience.
+Ground the plotting cell separately from the filtering cell.
 
 ## Set thresholds within samples
 
-```python
-for sample in adata.obs[sample_key].unique():
-    mask = (adata.obs[sample_key] == sample).to_numpy()
-    values = np.log1p(adata.obs.loc[mask, "total_counts"].to_numpy())
-    median = np.median(values)
-    mad = np.median(np.abs(values - median)) or 1e-9
-    outlier = np.abs(values - median) > 5 * mad
-```
+A fixed technical floor plus a within-sample robust outlier rule is a
+defensible starting point, not an automatic truth. Tissue changes the
+mitochondrial cut-off: heart and kidney cells legitimately carry more
+mitochondrial RNA than PBMCs. Show the distributions, state the proposed rule,
+and let the user settle any material threshold choice.
 
-A fixed floor (`min_genes`, `max_pct_mt`) plus a within-sample MAD rule is a
-defensible default. Tissue changes the mitochondrial cut-off: heart and kidney
-cells legitimately carry far more mitochondrial RNA than PBMCs. If you deviate
-from the default, say why and record it.
+If there is only one sample, a global threshold can be correct. Record a
+`pooling_justification` so C008 can distinguish that design from an oversight.
 
-If there is only one sample, a global threshold is correct — record
-`pooling_justification` so the check knows it was a choice, not an oversight.
+## Preserve counts first
 
-## Preserve the counts first
+Before normalisation changes `X`, identify and preserve the unmodified counts in
+the declared counts layer. Put that operation in a grounded cell. Normalising in
+place with no counts layer is unrecoverable; if counts are unavailable upstream,
+stop and route back to project-audit.
 
-```python
-if "counts" not in adata.layers:
-    adata.layers["counts"] = adata.X.copy()
-```
+## Record exclusions from observed numbers
 
-Do this before anything touches `X`. Normalisation in place with no counts layer
-is unrecoverable.
-
-## Record the exclusions
+After the grounded filtering cell has run, record the object sizes it actually
+produced:
 
 ```python
 with project.stage("post_qc", summary="Sample-stratified QC",
@@ -73,21 +98,22 @@ with project.stage("post_qc", summary="Sample-stratified QC",
                            n_obs=n1, n_vars=g1)
 ```
 
-`n_before - n_removed` must equal `n_remaining`; the validator checks it. Use the
-numbers the object actually reports, not arithmetic you did in your head.
+`n_before - n_removed` must equal `n_remaining`; the validator checks it. Never
+substitute arithmetic remembered from an earlier run for the live object.
 
-## Then look at what you removed
+## Inspect what was removed
 
-Report the per-sample loss. A sample that lost 60% of its cells while the others
-lost 5% is not a QC success — it is a failed library, and dropping it entirely
-may be the honest call. Say so and let the user decide.
+Report per-sample loss. A sample that lost 60% of its cells while others lost
+5% is not a QC success; it may be a failed library, and dropping it entirely is
+a user decision.
 
-Doublet detection (scDblFinder, scrublet, DoubletFinder) is a separate stage,
-run **per sample** because doublet rate scales with loading density. Record the
-expected rate and the observed rate.
+Doublet detection is a separate grounded stage and normally runs per sample
+because doublet rate scales with loading density. Record the expected and
+observed rates.
 
 ## Stop conditions
 
-- If QC removes more than half the cells, stop and explain before continuing.
-- If a condition group drops below two donors after QC, say immediately that
-  inferential comparison of that group is no longer supportable.
+- Stop before writing if either `ground` call requires a user decision.
+- Stop after execution if QC removes more than half the cells, and explain.
+- If a condition drops below two donors, say immediately that confirmatory
+  comparison of that group is no longer supportable.
