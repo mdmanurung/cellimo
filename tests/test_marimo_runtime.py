@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 import stat
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -104,6 +105,36 @@ def test_check_notebook_reports_not_checked_when_marimo_is_absent(tmp_path: Path
     if not result.ran:
         assert not result.ok
         assert "not installed" in result.note
+
+
+def test_marimo_check_child_gets_the_event_loop_checkpoint(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    notebook = tmp_path / "analysis.py"
+    notebook.write_text("import marimo\n", encoding="utf-8")
+    executable = _fake_marimo(tmp_path / "venv" / "bin")
+    seen: dict[str, object] = {}
+
+    def capture(command, **kwargs):
+        seen["command"] = command
+        seen["env"] = kwargs["env"]
+        hook_dir = Path(str(kwargs["env"]["PYTHONPATH"]).split(os.pathsep)[0])
+        assert "asyncio.run = _cellimo_run" in (hook_dir / "sitecustomize.py").read_text(
+            encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(command, 0, '{"issues": []}', "")
+
+    monkeypatch.setattr("cellimo.marimo_runtime.subprocess.run", capture)
+    result = check_notebook(notebook, interpreter=executable.parent / "python")
+
+    assert result.ok
+    assert seen["command"] == [
+        str(executable),
+        "check",
+        "--format",
+        "json",
+        str(notebook),
+    ]
 
 
 def test_edit_command_defaults_to_discoverable_and_loopback(tmp_path: Path) -> None:

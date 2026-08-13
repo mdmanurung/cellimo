@@ -39,6 +39,58 @@ __all__ = [
 MARIMO_MIN_VERSION = "0.23.8"
 
 _TIMEOUT = 60
+_CHECKPOINT_INTERVAL = 0.05
+
+# Marimo 0.23.16's linter delegates even ``Path.is_file`` to
+# ``asyncio.to_thread``. On some Unix selector environments the worker result
+# is ready but its cross-thread wake-up is lost when the loop has no scheduled
+# work; the subprocess then idles until Cellimo's timeout. MCP stdio hits the
+# same host-level failure mode through AnyIO and uses the same bounded-wakeup
+# strategy. Injecting this tiny sitecustomize module into the child keeps a
+# timer scheduled without importing or patching Marimo itself.
+_ASYNCIO_CHECKPOINT = f"""\
+import asyncio
+
+_cellimo_original_run = asyncio.run
+_cellimo_original_shutdown = asyncio.BaseEventLoop.shutdown_default_executor
+
+async def _cellimo_checkpoint():
+    while True:
+        await asyncio.sleep({_CHECKPOINT_INTERVAL})
+
+async def _cellimo_shutdown_default_executor(self):
+    task = asyncio.create_task(_cellimo_checkpoint())
+    try:
+        return await _cellimo_original_shutdown(self)
+    finally:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+def _cellimo_run(main, *, debug=None, loop_factory=None):
+    async def _with_checkpoint():
+        task = asyncio.create_task(_cellimo_checkpoint())
+        try:
+            return await main
+        finally:
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+    kwargs = {{}}
+    if debug is not None:
+        kwargs["debug"] = debug
+    if loop_factory is not None:
+        kwargs["loop_factory"] = loop_factory
+    return _cellimo_original_run(_with_checkpoint(), **kwargs)
+
+asyncio.run = _cellimo_run
+asyncio.BaseEventLoop.shutdown_default_executor = _cellimo_shutdown_default_executor
+"""
 
 
 @dataclass(frozen=True)
@@ -133,10 +185,20 @@ def _marimo_executable(interpreter: str | Path | None = None) -> str | None:
     return shutil.which("marimo")
 
 
-def _run(command: list[str], *, timeout: int = _TIMEOUT) -> tuple[int, str, str]:
+def _run(
+    command: list[str],
+    *,
+    timeout: int = _TIMEOUT,
+    env: dict[str, str] | None = None,
+) -> tuple[int, str, str]:
     try:
         completed = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
+            command,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            env=env,
         )
     except FileNotFoundError:
         return 127, "", f"{command[0]}: not found"
@@ -239,7 +301,7 @@ def check_notebook(path: str | Path, *, interpreter: str | Path | None = None) -
                 "cell graph was not validated"
             ),
         )
-    code, stdout, stderr = _run([executable, "check", "--format", "json", str(target)])
+    code, stdout, stderr = _run_marimo_check(executable, target)
     try:
         payload = json.loads(stdout or "{}")
     except json.JSONDecodeError:
@@ -253,6 +315,27 @@ def check_notebook(path: str | Path, *, interpreter: str | Path | None = None) -
         )
     issues = payload.get("issues") or []
     return NotebookCheck(path=str(target), ok=code == 0 and not issues, issues=issues)
+
+
+def _run_marimo_check(executable: str, target: Path) -> tuple[int, str, str]:
+    """Run Marimo with a bounded event-loop wakeup workaround.
+
+    The helper lives in a temporary import directory and is loaded by Python's
+    standard ``sitecustomize`` hook. It changes only the child process and the
+    directory is removed automatically when the command returns.
+    """
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="cellimo-marimo-") as directory:
+        hook = Path(directory) / "sitecustomize.py"
+        hook.write_text(_ASYNCIO_CHECKPOINT, encoding="utf-8")
+        env = os.environ.copy()
+        existing = env.get("PYTHONPATH")
+        env["PYTHONPATH"] = directory + (os.pathsep + existing if existing else "")
+        return _run(
+            [executable, "check", "--format", "json", str(target)],
+            env=env,
+        )
 
 
 def discover_servers() -> list[MarimoServer]:
