@@ -78,6 +78,16 @@ The read-only knowledge index behind the `cellimo-knowledge` MCP server.
 .. automodule:: cellimo.retrieval.base
    :members:
    :undoc-members:
+
+.. automodule:: cellimo.retrieval.grounding
+   :members:
+   :undoc-members:
+   :exclude-members: model_config, model_fields, model_computed_fields
+
+.. automodule:: cellimo.reinvention
+   :members:
+   :undoc-members:
+   :exclude-members: model_config, model_fields, model_computed_fields
 ```
 
 ## Errors

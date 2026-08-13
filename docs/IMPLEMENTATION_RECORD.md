@@ -112,7 +112,7 @@ from mcp.server.mcpserver import MCPServer   # or: from mcp.server import MCPSer
 ```
 
 Tests drive the server in-process with the new unified client
-(`async with Client(server) as client:`), so the four tools are exercised without
+(`async with Client(server) as client:`), so the five tools are exercised without
 spawning a subprocess. Cellimo pins `mcp>=2.0,<3`.
 
 ## 4. Frozen schema

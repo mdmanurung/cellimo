@@ -27,6 +27,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from cellimo.corpus import build_usage, save_usage
 from cellimo.errors import RetrievalError
 from cellimo.resources import index_root
 
@@ -245,6 +246,7 @@ def install_from_archive(
     if force and target.exists():
         shutil.rmtree(target)
     extract_archive(archive, target, strip_prefix=strip_prefix)
+    _save_call_usage(target)
     return target
 
 
@@ -273,6 +275,14 @@ def install_index(
     if force and target.exists():
         shutil.rmtree(target)
     extract_archive(archive, target, strip_prefix=source.strip_prefix, progress=progress)
+    _save_call_usage(target)
     if not keep_archive:
         archive.unlink(missing_ok=True)
     return target
+
+
+def _save_call_usage(target: Path) -> None:
+    """Measure a KAI-shaped notebook store once, as part of explicit install."""
+    usage = build_usage(target)
+    if usage.notebooks_scanned:
+        save_usage(usage, target)

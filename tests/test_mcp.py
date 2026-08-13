@@ -2,7 +2,7 @@
 
 The server is exercised the way an agent would: list the tools, call each one,
 read the structured content back. No subprocess, no ChromaDB, no model download —
-the fixture index makes all four tools testable in milliseconds.
+the fixture index makes all five tools testable in milliseconds.
 """
 
 from __future__ import annotations
@@ -14,7 +14,9 @@ from typing import Any
 
 import pytest
 
+from cellimo.corpus import CorpusUsage, save_usage
 from cellimo.mcp.server import SERVER_NAME, build_server
+from cellimo.project.project import Project
 from cellimo.retrieval.lexical_index import LexicalKnowledgeIndex
 
 mcp_client = pytest.importorskip("mcp.client", reason="the MCP SDK is a core dependency")
@@ -34,7 +36,7 @@ def _call(server: Any, name: str, arguments: dict[str, Any]) -> Any:
 
     async def _inner() -> Any:
         async with Client(server) as client:
-            return await client.call_tool(name, arguments)
+            return await asyncio.wait_for(client.call_tool(name, arguments), timeout=30)
 
     return _run(_inner())
 
@@ -44,16 +46,17 @@ def _tools(server: Any) -> list[Any]:
 
     async def _inner() -> Any:
         async with Client(server) as client:
-            listing = await client.list_tools()
+            listing = await asyncio.wait_for(client.list_tools(), timeout=30)
             return list(listing.tools)
 
     return _run(_inner())
 
 
-def test_server_starts_and_exposes_exactly_four_tools(server: Any) -> None:
+def test_server_starts_and_exposes_exactly_five_tools(server: Any) -> None:
     names = sorted(tool.name for tool in _tools(server))
     assert names == [
         "get_reference",
+        "ground",
         "index_status",
         "search_documentation",
         "search_workflows",
@@ -105,6 +108,59 @@ def test_search_workflows_returns_structured_hits(server: Any) -> None:
     assert payload["hits"]
     assert payload["hits"][0]["reference_id"] == "notebook:scverse_scanpy_pbmc3k_qc"
     assert payload["backend"] == "lexical"
+
+
+def test_ground_returns_a_cited_section_in_one_call(server: Any) -> None:
+    payload = _call(
+        server,
+        "ground",
+        {"query": "quality control filter cells by genes"},
+    ).structured_content
+    assert payload["needs_user_decision"] is False
+    assert payload["api_usage"]
+    code = payload["api_usage"][0]
+    assert code["section_id"] == "1"
+    assert code["content"].startswith("# cellimo:source ")
+
+
+def test_ground_preflights_proposed_code_through_the_mcp_tool(
+    fixture_index: Path,
+    project: Project,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import cellimo.mcp.server as server_module
+
+    save_usage(
+        CorpusUsage(
+            notebooks_by_call={"sc.pl.violin": 188},
+            notebooks_scanned=2_845,
+        ),
+        fixture_index,
+    )
+    monkeypatch.setattr(
+        server_module,
+        "native_signatures",
+        lambda _interpreter: {
+            "sc.pl.violin": ["adata", "keys", "groupby"],
+        },
+    )
+    checked_server = build_server(
+        index=LexicalKnowledgeIndex(fixture_index),
+        project=project,
+    )
+
+    payload = _call(
+        checked_server,
+        "ground",
+        {
+            "query": "quality control filter cells by genes",
+            "candidate_code": "ax.boxplot(adata.obs['n_genes_by_counts'])",
+        },
+    ).structured_content
+
+    assert payload["candidate_reviewed"] is True
+    assert payload["needs_user_decision"] is True
+    assert payload["reinvention"][0]["candidates"][0] == "sc.pl.violin"
 
 
 def test_search_workflows_honours_filters(server: Any) -> None:

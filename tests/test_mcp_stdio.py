@@ -35,7 +35,7 @@ def _server_command() -> tuple[str, list[str]]:
 
 
 def _drive(index_dir: Path | None) -> dict[str, Any]:
-    """Start the server as a subprocess and exercise all four tools."""
+    """Start the server as a subprocess and exercise all five tools."""
     from mcp import ClientSession, StdioServerParameters, stdio_client
 
     command, arguments = _server_command()
@@ -56,6 +56,11 @@ def _drive(index_dir: Path | None) -> dict[str, Any]:
             results["workflows"] = (
                 await session.call_tool("search_workflows", {"query": "quality control"})
             ).structured_content
+            results["ground"] = (
+                await session.call_tool(
+                    "ground", {"query": "quality control filter cells by genes"}
+                )
+            ).structured_content
             results["documentation"] = (
                 await session.call_tool("search_documentation", {"query": "normalize"})
             ).structured_content
@@ -67,10 +72,11 @@ def _drive(index_dir: Path | None) -> dict[str, Any]:
     return asyncio.run(asyncio.wait_for(_inner(), timeout=120))
 
 
-def test_server_starts_over_stdio_and_serves_all_four_tools(fixture_index: Path) -> None:
+def test_server_starts_over_stdio_and_serves_all_five_tools(fixture_index: Path) -> None:
     results = _drive(fixture_index)
     assert results["tools"] == [
         "get_reference",
+        "ground",
         "index_status",
         "search_documentation",
         "search_workflows",
@@ -78,6 +84,7 @@ def test_server_starts_over_stdio_and_serves_all_four_tools(fixture_index: Path)
     assert results["status"]["installed"] is True
     assert results["status"]["backend"] == "lexical"
     assert results["workflows"]["hits"]
+    assert results["ground"]["api_usage"]
     assert results["reference"].structured_content["sections"]
 
 

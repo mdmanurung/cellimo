@@ -49,9 +49,14 @@ listed that is not.
 
 **Retrieval**
 
-- `cellimo-knowledge`, a read-only stdio MCP server (`mcp` 2.x) with exactly four
-  tools: `search_workflows`, `search_documentation`, `get_reference`,
+- `cellimo-knowledge`, a read-only stdio MCP server (`mcp` 2.x) with exactly five
+  tools: `ground`, `search_workflows`, `search_documentation`, `get_reference`,
   `index_status`. No execution, no data access, no notebook editing.
+- `ground()` selects a few relevant cells, preserves their citation headers,
+  separates canonical API usage from paper-companion practice, and withholds
+  recognised C004/C006/C008 design errors before a notebook cell is written.
+  Its `candidate_code` preflight also checks proposed custom AnnData plots
+  against corpus usage and signatures from the project interpreter.
 - Stable reference identifiers in two namespaces (`notebook:`, `chunk:`), never
   derived from result position.
 - Two backends: `chroma` (KAI's published index) and `lexical` (stdlib BM25 over

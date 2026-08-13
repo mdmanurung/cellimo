@@ -7,6 +7,7 @@ point of keeping this module free of anything scientific.
 from __future__ import annotations
 
 import json
+import zipfile
 from pathlib import Path
 
 from cellimo.corpus import (
@@ -147,3 +148,27 @@ def test_usage_survives_a_round_trip(tmp_path: Path) -> None:
 
 def test_an_unmeasured_index_loads_as_none(tmp_path: Path) -> None:
     assert load_usage(tmp_path) is None
+
+
+def test_install_builds_the_call_table_for_a_notebook_store(tmp_path: Path) -> None:
+    """Grounding must not depend on a developer having run a private script."""
+    from cellimo.retrieval.install import install_from_archive
+
+    archive = tmp_path / "index.zip"
+    payload = {
+        "notebook_id": "demo",
+        "cells": [
+            {"cell_type": "code", "content": "sc.pl.violin(adata)", "order": 0}
+        ],
+    }
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr(
+            "retrieval/notebook_summaries/notebooks/org/repo/demo.json",
+            json.dumps(payload),
+        )
+
+    destination = install_from_archive(archive, destination=tmp_path / "installed")
+    usage = load_usage(destination)
+    assert usage is not None
+    assert usage.notebooks_scanned == 1
+    assert usage.count("sc.pl.violin") == 1

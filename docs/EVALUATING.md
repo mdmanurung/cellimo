@@ -82,10 +82,11 @@ failures, all visible in the scorecard:
 
 ## Trying it by hand
 
-The `cellimo-knowledge` MCP server is read-only and gives you four tools:
-`search_workflows`, `search_documentation`, `get_reference`, `index_status`. Ask
-your agent to search for something you know well and judge the answers — that is
-the fastest way to form an opinion the scorecard cannot give you.
+The `cellimo-knowledge` MCP server is read-only and gives you five tools:
+`ground`, `search_workflows`, `search_documentation`, `get_reference`, and
+`index_status`. Ask your agent to ground a step you know well and judge the
+selected cells — that is the fastest way to form an opinion the scorecard
+cannot give you.
 
 A retrieved code section now arrives with its origin attached:
 

@@ -48,19 +48,20 @@ imports `openai`, `anthropic`, `ollama`, `litellm`, `langchain` or
 The consequence for retrieval is structural. The pipeline is:
 
 ```
-query → semantic and/or lexical search → ranked summaries and exact sections → the agent chooses
+query → cited sections → agent adapts in memory → candidate preflight → notebook cell
 ```
 
-There is no model ranking, filtering or summarising in between. `search_workflows`
-returns candidates; `get_reference` returns the literal cells; the agent decides
-what applies.
+There is no model ranking, filtering or summarising in between. `ground`
+composes `search_workflows` and `get_reference`, selects sections by literal
+evidence, and applies explicit design rules. A second call checks the exact
+proposed cell for native-function reinvention before the agent creates it.
 
 ## Two runtimes
 
 **The tool runtime** is what `uv tool install cellimo` puts on your PATH: the
 CLI, the MCP server, retrieval, provenance and validation. Its dependencies are
-Click, pydantic, PyYAML, platformdirs, packaging and the MCP SDK. It installs in
-seconds and pulls no CUDA wheels.
+Click, pydantic, PyYAML, platformdirs, packaging, AnyIO and the MCP SDK. It
+installs in seconds and pulls no CUDA wheels.
 
 **The project runtime** is whatever environment runs the notebook: Marimo,
 AnnData, Scanpy, and whatever else the analysis needs. It is described by the

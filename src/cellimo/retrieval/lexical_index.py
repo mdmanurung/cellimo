@@ -1,7 +1,7 @@
 """A stdlib-only lexical retrieval backend.
 
 Reads a single ``cellimo-index.json`` file and scores with BM25. It exists for
-two reasons: the test suite must be able to exercise all four MCP tools without
+two reasons: the test suite must be able to exercise all five MCP tools without
 a 345 MB download and a PyTorch install, and a small hand-built index is a
 reasonable thing for a lab to ship alongside its own notebooks.
 

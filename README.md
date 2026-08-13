@@ -50,8 +50,9 @@ Cellimo router + focused skills
         +-- marimo-pair                 inspect live state, run scratchpad code,
         |                               create/edit/run durable cells
         |
-        +-- cellimo-knowledge (MCP)     search_workflows, search_documentation,
-        |                               get_reference, index_status  — read-only
+        +-- cellimo-knowledge (MCP)     ground, search_workflows,
+        |                               search_documentation, get_reference,
+        |                               index_status  — read-only
         |
         +-- cellimo (Python library)    project config, AnnData audit, design,
                                         artifacts + lineage, provenance,
@@ -68,9 +69,9 @@ to the running kernel. **Cellimo** owns none of that and duplicates none of it.
 uv tool install .                  # the tool runtime: CLI, MCP, provenance, checks
 ```
 
-The tool runtime is deliberately light — Click, pydantic, PyYAML and the MCP
-SDK. Scanpy, Torch and friends are *not* in it. The scientific stack belongs to
-the **project runtime**, which is whatever environment runs your notebook:
+The tool runtime is deliberately light — Click, pydantic, PyYAML, AnyIO and the
+MCP SDK. Scanpy, Torch and friends are *not* in it. The scientific stack belongs
+to the **project runtime**, which is whatever environment runs your notebook:
 
 ```bash
 pip install 'cellimo[scanpy]'      # marimo + anndata + scanpy + the usual
@@ -213,16 +214,18 @@ single-cell analysis notebooks, inherited from KAI:
 
 | tool | returns |
 | --- | --- |
+| `ground(query, packages, modalities, top_k, analysis_mode, candidate_code)` | cited sections plus design and proposed-code checks before a cell is created |
 | `search_workflows(query, packages, modalities, top_k)` | ranked notebooks with stable reference ids |
 | `search_documentation(query, packages, top_k)` | ranked API/documentation sections |
 | `get_reference(reference_id, section_ids)` | the exact cells, with a content hash |
 | `index_status()` | what is installed, and what it cannot answer |
 
 It cannot execute Python, start a kernel, read your data, train anything, edit
-the notebook, or write into your project. Retrieval ranks and returns; the agent
-decides. (That is the tool contract. The ChromaDB backend does write to its own
-internal index files while querying, so its index directory must stay writable —
-see [docs/RETRIEVAL.md](docs/RETRIEVAL.md).)
+the notebook, or write into your project. `ground` deterministically selects
+relevant source cells and withholds recognised design errors; the agent decides
+how to adapt what remains. (That is the tool contract. The ChromaDB backend
+does write to its own internal index files while querying, so its index
+directory must stay writable — see [docs/RETRIEVAL.md](docs/RETRIEVAL.md).)
 
 ```bash
 cellimo index status

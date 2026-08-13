@@ -4,19 +4,21 @@ The point of retrieval here is to answer "how is this step actually done in
 published work?" with a citable source, not with a plausible paraphrase.
 
 ```
-query → semantic and/or lexical search → ranked summaries and exact sections → the agent chooses
+query → search → relevant sections → design checks → cited code → the agent adapts
 ```
 
-There is no model in that pipeline. Cellimo ranks and returns; Codex or Claude
-decides what applies.
+There is no model in that pipeline. Cellimo ranks, selects by explicit term
+overlap, and applies bounded method checks; Codex or Claude decides how the
+surviving source applies to the live analysis.
 
 ## The MCP server
 
 `cellimo-knowledge` is a stdio MCP server (`cellimo mcp serve`) with exactly
-four tools, all of them queries:
+five tools, all of them read-only queries:
 
 | tool | arguments | returns |
 | --- | --- | --- |
+| `ground` | `query`, `packages`, `modalities`, `top_k=5`, `analysis_mode=auto`, `candidate_code` | cited sections split into `api_usage` and `in_practice`, design findings, and proposed-code preflight |
 | `search_workflows` | `query`, `packages`, `modalities`, `top_k=8` | ranked notebooks |
 | `search_documentation` | `query`, `packages`, `top_k=8` | ranked API/doc sections |
 | `get_reference` | `reference_id`, `section_ids` | the exact source, with a content hash |
@@ -48,6 +50,36 @@ The index is opened **once**, when the server object is built. Re-opening it per
 call would reload a sentence-transformers model on every query; a test asserts
 it is opened exactly once.
 
+### Ground before writing
+
+`ground` is the normal entry point for an analysis cell. It searches a wider
+set of notebooks, admits only code sections with concrete overlap in their
+code, heading, or nearby prose, and returns at most eight (five by default).
+Each returned section keeps its `# cellimo:source` header.
+
+Sources are separated by role rather than assigned a single trust score:
+tutorials and vignettes show canonical API usage; paper-companion repositories
+show how APIs are used in practice. When project design metadata is available,
+`ground` withholds recognised pseudoreplication (`C004`), confirmatory testing
+on corrected values (`C006`), and pooled multi-sample QC (`C008`). If nothing
+relevant and checked remains, `needs_user_decision` is true. The caller must
+stop and ask the user rather than fill the gap from memory.
+
+Grounding has a required two-call cycle because Cellimo cannot inspect a cell
+that has not been proposed yet:
+
+1. call `ground(query=...)` and use both source roles to adapt one cell in
+   working memory;
+2. call `ground(query=..., candidate_code=<exact proposed cell>)` before adding
+   it to Marimo.
+
+The second result must say `candidate_reviewed=true` and
+`needs_user_decision=false`. It compares custom AnnData plotting against the
+corpus call table and the native plotting signatures in the project's recorded
+interpreter. A native alternative, a missing corpus table, or an unavailable
+signature needed to settle a possible reinvention requires a user decision.
+The source header from the selected section stays in the adapted cell.
+
 ## Reference identifiers
 
 A reference id has to survive re-indexing, must not depend on a row's position
@@ -73,8 +105,8 @@ chunks, a second ChromaDB instance of notebook summaries, and a filesystem store
 of the notebooks themselves. Needs `pip install 'cellimo[retrieval]'`.
 
 **`lexical`** reads a single `cellimo-index.json` and scores with BM25, using
-nothing outside the standard library. It backs the test suite — all four tools
-are exercised in milliseconds without a 345 MB download or a PyTorch install —
+nothing outside the standard library. It backs the test suite — all five MCP
+tools are exercised without a 345 MB download or a PyTorch install —
 and is a reasonable format for a lab that wants to index its own notebooks.
 
 `open_index()` picks by inspecting the directory, and returns a `MissingIndex`
@@ -92,6 +124,9 @@ cellimo index update
 ```
 
 Never during `pip install`, never during tests, never as a side effect.
+The explicit install also computes the corpus function-call table once; an
+older installed index is measured read-only on the first proposed-code
+preflight.
 
 The published archive is 345 MB compressed and about 840 MB unpacked. It is
 GPL-3.0-or-later **data**, separate from KAI's Apache-2.0 code, which is why

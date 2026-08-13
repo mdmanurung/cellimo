@@ -10,9 +10,10 @@ Two backends exist:
     Reads a plain JSON index with stdlib-only BM25-style scoring. Used by the
     tests, and usable as a small self-built index.
 
-Both answer the same four questions, and both are loaded exactly once per
-process — an MCP server that re-opened its index on every call would pay the
-model-load cost on every tool invocation.
+Both backends answer the same four primitive questions. ``ground`` composes
+those primitives into the design-checked section selection exposed by MCP.
+Each backend is loaded exactly once per process — an MCP server that re-opened
+its index on every call would pay the model-load cost on every tool invocation.
 """
 
 from __future__ import annotations
@@ -133,7 +134,12 @@ class MissingIndex(KnowledgeIndex):
             backend=self.backend,
             path=str(self.path),
             note=self.reason,
-            unavailable=["search_workflows", "search_documentation", "get_reference"],
+            unavailable=[
+                "ground",
+                "search_workflows",
+                "search_documentation",
+                "get_reference",
+            ],
         )
 
 

@@ -1,7 +1,8 @@
 """``cellimo-knowledge`` — a read-only MCP server over the retrieval index.
 
-Four tools, all of them queries:
+Five tools, all of them queries:
 
+``ground``                return a few cited, design-checked code cells
 ``search_workflows``      rank indexed analysis notebooks
 ``search_documentation``  rank indexed API/documentation sections
 ``get_reference``         return the exact source behind a reference id
@@ -29,11 +30,21 @@ from __future__ import annotations
 import sys
 from typing import Any
 
+import anyio
 from mcp.server.mcpserver import MCPServer
 
 from cellimo import __version__
-from cellimo.errors import CellimoError
+from cellimo.corpus import CorpusUsage, build_usage, load_usage
+from cellimo.errors import CellimoError, ProjectNotFoundError
+from cellimo.project.project import Project
+from cellimo.reinvention import native_signatures
 from cellimo.retrieval.base import KnowledgeIndex, open_index
+from cellimo.retrieval.grounding import (
+    GroundingMode,
+    GroundingResult,
+    design_from_project,
+)
+from cellimo.retrieval.grounding import ground as ground_query
 from cellimo.retrieval.models import IndexStatus, Reference, SearchResult
 
 __all__ = ["SERVER_NAME", "build_server", "serve"]
@@ -43,10 +54,12 @@ SERVER_NAME = "cellimo-knowledge"
 _INSTRUCTIONS = """\
 Read-only retrieval over an index of published single-cell analysis notebooks.
 
-Use search_workflows to find how a step is actually done in practice, then
-get_reference with the returned reference_id (and section_ids) to read the exact
-cells rather than working from the summary. Record what you used with
-cellimo's record_reference so the notebook can cite it.
+Use ground before writing an analysis cell. First retrieve a small set of exact,
+cited sections. Adapt one cell in working memory, keeping its source header,
+then call ground again with that exact candidate_code before creating the cell.
+The second result must have candidate_reviewed=true and
+needs_user_decision=false. Otherwise stop and ask the user. search_workflows and
+get_reference remain available for diagnosis and narrower follow-up reads.
 
 This server cannot run code, read the dataset, or edit the notebook. Use
 marimo-pair for anything that touches the live session.
@@ -57,11 +70,12 @@ def build_server(
     index: KnowledgeIndex | None = None,
     *,
     index_path: str | None = None,
+    project: Project | None = None,
 ) -> MCPServer:
     """Build the MCP server, opening the index once.
 
-    ``index`` is injectable so tests can drive all four tools against a fixture
-    without a ChromaDB installation.
+    ``index`` and ``project`` are injectable so tests can drive all five tools
+    against fixtures without a ChromaDB installation or ambient project.
     """
     knowledge = index if index is not None else open_index(index_path)
     server = MCPServer(
@@ -74,9 +88,66 @@ def build_server(
         version=__version__,
         website_url="https://github.com/mdmanurung/cellimo",
     )
+    usage_loaded = False
+    corpus_usage: CorpusUsage | None = None
+    signature_cache: dict[str, dict[str, list[str]]] = {}
+
+    # These handlers are intentionally async even though the index API is
+    # synchronous. MCPServer otherwise dispatches them through a worker thread.
+    # A stdio server handles one agent request at a time, so running each bounded
+    # read-only query in its event loop avoids needless cross-thread dispatch
+    # without changing the concurrency users actually have.
+    @server.tool()
+    async def ground(
+        query: str,
+        packages: list[str] | None = None,
+        modalities: list[str] | None = None,
+        top_k: int = 5,
+        analysis_mode: GroundingMode = "auto",
+        candidate_code: str | None = None,
+    ) -> GroundingResult:
+        """Return cited code worth adapting, checked before a cell is written.
+
+        The result has separate `api_usage` and `in_practice` examples and
+        withholds recognised design errors. Pass the exact proposed cell as
+        `candidate_code` for the required native-function preflight. When
+        `needs_user_decision` is true, do not improvise a replacement — ask.
+        """
+        current = project
+        if current is None:
+            try:
+                # Re-open per call so a design approved while the MCP server is
+                # alive is visible immediately. The expensive index remains open
+                # once; this reads one small YAML file and provenance metadata.
+                current = Project.open()
+            except ProjectNotFoundError:
+                current = None
+        nonlocal usage_loaded, corpus_usage
+        signatures: dict[str, list[str]] | None = None
+        if candidate_code and not usage_loaded:
+            corpus_usage = _corpus_usage(knowledge)
+            usage_loaded = True
+        if candidate_code and current is not None:
+            interpreter = current.config.environment.interpreter
+            if interpreter:
+                if interpreter not in signature_cache:
+                    signature_cache[interpreter] = native_signatures(interpreter)
+                signatures = signature_cache[interpreter]
+        return ground_query(
+            knowledge,
+            query,
+            design=design_from_project(current),
+            packages=packages,
+            modalities=modalities,
+            top_k=_bounded(top_k, maximum=8),
+            analysis_mode=analysis_mode,
+            candidate_code=candidate_code,
+            usage=corpus_usage,
+            signatures=signatures,
+        )
 
     @server.tool()
-    def search_workflows(
+    async def search_workflows(
         query: str,
         packages: list[str] | None = None,
         modalities: list[str] | None = None,
@@ -96,7 +167,7 @@ def build_server(
         )
 
     @server.tool()
-    def search_documentation(
+    async def search_documentation(
         query: str,
         packages: list[str] | None = None,
         top_k: int = 8,
@@ -112,7 +183,7 @@ def build_server(
         )
 
     @server.tool()
-    def get_reference(
+    async def get_reference(
         reference_id: str,
         section_ids: list[str] | None = None,
     ) -> Reference:
@@ -125,7 +196,7 @@ def build_server(
         return knowledge.get_reference(reference_id, section_ids)
 
     @server.tool()
-    def index_status() -> IndexStatus:
+    async def index_status() -> IndexStatus:
         """Report what retrieval index is installed and what it cannot answer."""
         return knowledge.status()
 
@@ -141,6 +212,17 @@ def _bounded(top_k: int, *, maximum: int = 50) -> int:
     return max(1, min(value, maximum))
 
 
+def _corpus_usage(index: KnowledgeIndex) -> CorpusUsage | None:
+    """Load the installed call table, or derive it read-only for an old index."""
+    status = index.status()
+    if not status.path:
+        return None
+    usage = load_usage(status.path)
+    if usage is None:
+        usage = build_usage(status.path)
+    return usage if usage.notebooks_scanned and usage.notebooks_by_call else None
+
+
 def serve(index_path: str | None = None) -> None:
     """Run the server on stdio. This is what ``cellimo mcp serve`` calls."""
     try:
@@ -148,7 +230,28 @@ def serve(index_path: str | None = None) -> None:
     except CellimoError as exc:
         print(f"cellimo-knowledge: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
-    server.run(transport="stdio")
+    anyio.run(_run_stdio, server)
+
+
+async def _run_stdio(server: MCPServer) -> None:
+    """Run MCP stdio while keeping worker-backed pipe I/O responsive.
+
+    The MCP SDK wraps the process's text streams with AnyIO worker calls. Some
+    Unix selector environments can lose the cross-thread wake-up after a
+    blocking read completes; a scheduled checkpoint bounds that stall without
+    changing the transport or its file-descriptor safety guarantees.
+    """
+    async with anyio.create_task_group() as tasks:
+        tasks.start_soon(_stdio_checkpoint)
+        try:
+            await server.run_stdio_async()
+        finally:
+            tasks.cancel_scope.cancel()
+
+
+async def _stdio_checkpoint() -> None:
+    while True:
+        await anyio.sleep(0.05)
 
 
 def main(argv: list[str] | None = None) -> Any:  # pragma: no cover - process entry point
