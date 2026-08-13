@@ -176,14 +176,28 @@ def test_malformed_header_lines_are_reported() -> None:
     assert C.malformed_headers(source) == [1]
 
 
+def test_header_examples_inside_strings_are_not_citations() -> None:
+    source = '''
+message = """
+# cellimo:source notebook:example section=1 sha=0123456789ab
+Scientific cells carry `# cellimo:source` headers.
+"""
+'''
+
+    assert C.parse(source) == []
+    assert C.malformed_headers(source) == []
+
+
 def test_generated_template_audit_is_limited_to_its_two_qc_cells() -> None:
     """UI, design approval, artifacts and provenance must not become noise."""
     from cellimo.resources import template_path
 
-    cells = C.analysis_cells(template_path("analysis.py").read_text(encoding="utf-8"))
+    source = template_path("analysis.py").read_text(encoding="utf-8")
+    cells = C.analysis_cells(source)
     assert len(cells) == 2
     assert any("_filtered.write_h5ad" in cell.calls for cell in cells)
     assert any("_plt.subplots" in cell.calls for cell in cells)
+    assert C.malformed_headers(source) == []
 
 
 # -- resolution ------------------------------------------------------------

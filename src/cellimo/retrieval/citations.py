@@ -30,7 +30,10 @@ exactly the kind of guarantee that looks real and is not.
 from __future__ import annotations
 
 import ast
+import io
 import re
+import tokenize
+from collections.abc import Iterator
 from enum import StrEnum
 
 from pydantic import BaseModel, ConfigDict
@@ -208,12 +211,12 @@ class CitedAnalysisCell(BaseModel):
 def parse(source: str) -> list[Citation]:
     """Every citation header in a notebook, in the order they appear.
 
-    Deliberately line-based rather than AST-based: comments are not part of
-    Python's syntax tree, and a header must survive being moved around inside a
-    cell by whoever is editing it.
+    Deliberately token-based rather than AST-based: comments are not part of
+    Python's syntax tree, and tokenising distinguishes a real comment from
+    documentation that merely shows ``# cellimo:source`` inside a string.
     """
     citations: list[Citation] = []
-    for number, line in enumerate(source.splitlines(), start=1):
+    for number, line in _comment_tokens(source):
         match = _HEADER.match(line)
         if match is None:
             continue
@@ -232,9 +235,21 @@ def malformed_headers(source: str) -> list[int]:
     """Line numbers that look like citation headers but do not parse."""
     return [
         number
-        for number, line in enumerate(source.splitlines(), start=1)
+        for number, line in _comment_tokens(source)
         if "cellimo:source" in line and _HEADER.match(line) is None
     ]
+
+
+def _comment_tokens(source: str) -> Iterator[tuple[int, str]]:
+    """Actual Python comments, including those before a later syntax error."""
+    try:
+        for token in tokenize.generate_tokens(io.StringIO(source).readline):
+            if token.type == tokenize.COMMENT:
+                yield token.start[0], token.string
+    except (IndentationError, tokenize.TokenError):
+        # A malformed notebook can still contain useful headers before the
+        # broken token. ``generate_tokens`` yields those before raising.
+        return
 
 
 def analysis_cells(source: str) -> list[CitedAnalysisCell]:
