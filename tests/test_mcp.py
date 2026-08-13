@@ -123,6 +123,25 @@ def test_ground_returns_a_cited_section_in_one_call(server: Any) -> None:
     assert code["content"].startswith("# cellimo:source ")
 
 
+def test_ground_exposes_exact_reference_exclusions(server: Any) -> None:
+    payload = _call(
+        server,
+        "ground",
+        {
+            "query": "quality control filter cells by genes",
+            "exclude_reference_ids": ["notebook:scverse_scanpy_pbmc3k_qc"],
+        },
+    ).structured_content
+
+    assert payload["excluded_reference_ids"] == [
+        "notebook:scverse_scanpy_pbmc3k_qc"
+    ]
+    assert all(
+        item["reference_id"] != "notebook:scverse_scanpy_pbmc3k_qc"
+        for item in [*payload["api_usage"], *payload["in_practice"]]
+    )
+
+
 def test_ground_preflights_proposed_code_through_the_mcp_tool(
     fixture_index: Path,
     project: Project,

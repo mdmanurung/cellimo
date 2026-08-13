@@ -214,7 +214,7 @@ single-cell analysis notebooks, inherited from KAI:
 
 | tool | returns |
 | --- | --- |
-| `ground(query, packages, modalities, top_k, analysis_mode, candidate_code)` | cited sections plus design and proposed-code checks before a cell is created |
+| `ground(query, packages, modalities, top_k, analysis_mode, exclude_reference_ids, candidate_code)` | cited sections plus design and proposed-code checks before a cell is created; exact exclusions support held-out evaluation |
 | `search_workflows(query, packages, modalities, top_k)` | ranked notebooks with stable reference ids |
 | `search_documentation(query, packages, top_k)` | ranked API/documentation sections |
 | `get_reference(reference_id, section_ids)` | the exact cells, with a content hash |
@@ -370,6 +370,7 @@ source.
 - [docs/MARIMO.md](docs/MARIMO.md) — the notebook, marimo-pair, sessions
 - [docs/PLUGIN.md](docs/PLUGIN.md) — one tree, two platforms
 - [docs/RETRIEVAL.md](docs/RETRIEVAL.md) — the index, its schema and its gaps
+- [docs/EVALUATING.md](docs/EVALUATING.md) — leakage-blocked function-call benchmark and retrieval diagnostics
 - [docs/VALIDATION.md](docs/VALIDATION.md) — every check, with its rationale
 - [docs/SAFETY.md](docs/SAFETY.md) — what is guaranteed and what is not
 - [docs/MIGRATION.md](docs/MIGRATION.md) — from KAI

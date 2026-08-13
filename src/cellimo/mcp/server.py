@@ -104,6 +104,7 @@ def build_server(
         modalities: list[str] | None = None,
         top_k: int = 5,
         analysis_mode: GroundingMode = "auto",
+        exclude_reference_ids: list[str] | None = None,
         candidate_code: str | None = None,
     ) -> GroundingResult:
         """Return cited code worth adapting, checked before a cell is written.
@@ -112,6 +113,7 @@ def build_server(
         withholds recognised design errors. Pass the exact proposed cell as
         `candidate_code` for the required native-function preflight. When
         `needs_user_decision` is true, do not improvise a replacement — ask.
+        `exclude_reference_ids` is an exact denylist for held-out benchmarks.
         """
         current = project
         if current is None:
@@ -141,6 +143,7 @@ def build_server(
             modalities=modalities,
             top_k=_bounded(top_k, maximum=8),
             analysis_mode=analysis_mode,
+            exclude_reference_ids=exclude_reference_ids,
             candidate_code=candidate_code,
             usage=corpus_usage,
             signatures=signatures,

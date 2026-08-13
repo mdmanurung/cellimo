@@ -1,0 +1,25 @@
+id: kang-2018-scgen-perturbation
+dataset: Kang et al. 2018 interferon-beta PBMCs
+dataset_aliases:
+  - kang
+  - kang_2018
+  - kang2018
+  - kang18
+  - kang.h5ad
+  - kang_seurat
+expert_reference_id: notebook:scverse_pertpy_tutorials_scgen_perturbation_prediction
+package_roots:
+  - pertpy
+  - scanpy
+  - scvi
+  - anndata
+task: >-
+  Use the bundled Kang 2018 control-versus-interferon-beta PBMC dataset to
+  predict the held-out stimulated CD4 T-cell response with scGen. Preserve the
+  unnormalised values, normalise the working matrix, withhold stimulated CD4 T
+  cells from training, configure and train the model on a GPU, and save it.
+  Inspect the learned latent space by condition and cell type. Predict the
+  missing CD4 T-cell response, compare predicted, control, and observed cells
+  in a joint low-dimensional embedding, assess agreement of mean expression
+  both genome-wide and for leading response genes, and show the distribution of
+  ISG15 across the three groups.

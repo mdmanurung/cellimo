@@ -1,7 +1,7 @@
 # Evaluating Cellimo
 
-A testing ground for judging whether retrieval is good enough to build on, and
-for telling me where it is not.
+A testing ground for judging whether grounding changes the functions an agent
+selects, and for telling me where retrieval is not good enough.
 
 ## Setup, once
 
@@ -22,7 +22,41 @@ Expect `installed: true`, `notebooks: 2845`, `documents: 100999`, and a note
 that `search_documentation` returns nothing — the published archive has no
 documentation collections. That is a known gap, not a fault.
 
-## The scorecard
+## The outcome benchmark
+
+The primary benchmark holds out a published notebook, gives the candidate the
+same task, and compares unique scientific function calls extracted from both
+programs with Python's AST:
+
+```bash
+python tools/benchmark_calls.py \
+  benchmarks/kang_scgen.yaml \
+  benchmarks/kang_scgen_candidate.py \
+  benchmarks/kang_scgen_grounding.json \
+  --index "$CELLIMO_INDEX_DIR"
+```
+
+Leakage is a validity condition, not another metric. Cellimo scans all 2,845
+stored notebooks for the dataset aliases, excludes every match from every
+recorded `ground` call, verifies the held-out expert is among them, and resolves
+the candidate's citation headers. The command exits non-zero before calling the
+result held out if the denylist digest, citations, or proposed-code preflight do
+not check out.
+
+The frozen Kang 2018 scGen case excludes 54 dataset-derived references and
+scores **44.4% precision / 44.4% recall**: 8 of 18 expert calls matched, with 10
+missing and 10 extra. That is a useful failure, not a score to polish away. Most
+disagreement is API drift or disagreement (`Scgen` versus `SCGEN`, and
+`reg_mean_plot` versus `plot_reg_mean_plot`) in eligible corpus examples,
+followed by different Scanpy PCA entry points. Exact identities are retained so
+stale retrieval remains visible. One frozen task is a pipeline baseline, not a
+general capability estimate; see `benchmarks/README.md` for the artifacts and
+interpretation.
+
+## The retrieval diagnostic scorecard
+
+The older hand-labelled scorecard remains useful for diagnosing ranking, but it
+is not the outcome benchmark:
 
 ```bash
 python tools/eval_retrieval.py            # score every query
@@ -42,7 +76,7 @@ Three columns matter, and the last one most:
 A query with `0 good, 0 noise, 3 ?` is not a passing query. It is an unjudged
 one, and the score quietly excludes it.
 
-## What I actually need from you
+## What the diagnostic still needs
 
 Edit `tests/eval_queries.yaml`. Three things, in order of value:
 

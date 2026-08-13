@@ -1,0 +1,64 @@
+{
+  "benchmark_id": "kang-2018-scgen-perturbation",
+  "entries": [
+    {
+      "query": "preserve raw counts normalize total expression and withhold one stimulated cell type from training",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_scanpy_tutorials_tutorial_pearson_residuals"
+      ]
+    },
+    {
+      "query": "scGen setup anndata train save perturbation response prediction control stimulated cell type",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:theislab_pertpy_reproducibility_scgen_species"
+      ]
+    },
+    {
+      "query": "visualize model latent representation neighbors UMAP by condition and cell type then compare predicted observed cells with PCA",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_scvi_tutorials_decipher_tutorial"
+      ]
+    },
+    {
+      "query": "sc.tl.pca sc.pl.pca predicted observed cells",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_scanpy_tutorials_day1_01_solutions",
+        "notebook:scverse_scanpy_tutorials_tutorial_pearson_residuals"
+      ]
+    },
+    {
+      "query": "plot_reg_mean_plot predicted observed mean expression",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_pertpy_tutorials_expression_prediction_evaluation",
+        "notebook:theislab_feature_attribution_sc_mask_scgen_roar_evaluation"
+      ]
+    },
+    {
+      "query": "compare predicted and observed mean gene expression regression leading differential genes and violin plot",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_scanpy_tutorials_core"
+      ]
+    },
+    {
+      "query": "sc.pl.violin gene expression groupby label",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [
+        "notebook:scverse_decoupler_tutorials_rna_sc"
+      ]
+    },
+    {
+      "query": "Use the bundled Kang 2018 control-versus-interferon-beta PBMC dataset to predict the held-out stimulated CD4 T-cell response with scGen. Preserve the unnormalised values, normalise the working matrix, withhold stimulated CD4 T cells from training, configure and train the model on a GPU, and save it. Inspect the learned latent space by condition and cell type. Predict the missing CD4 T-cell response, compare predicted, control, and observed cells in a joint low-dimensional embedding, assess agreement of mean expression both genome-wide and for leading response genes, and show the distribution of ISG15 across the three groups.",
+      "exclusion_digest": "37594a320cacd42ac0414a78e8e6165b4aba626358845912c7723054bf65dee4",
+      "selected_reference_ids": [],
+      "candidate_reviewed": true,
+      "candidate_sha256": "d3cbaa620fd5d25b55b7523215ba17a11837e3ce8f0f8f316183d1dc1a94e115",
+      "needs_user_decision": false
+    }
+  ]
+}

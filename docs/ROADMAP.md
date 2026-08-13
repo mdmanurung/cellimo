@@ -30,16 +30,19 @@ branch, which had been blanking all of it.
 not need to: marimo-pair is the bridge, and the reasoning is the one you already
 chose. That founding constraint stands unchanged.
 
-## The gap, stated exactly
+## The original gap, now closed
 
-Nothing connects retrieval to `create_cell`.
+Nothing connected retrieval to `create_cell`.
 
-The agent writes cells from memory because no skill tells it to retrieve first —
-`quality-control`, `statistics` and `project-audit` mention retrieval **zero**
-times between them — and because a retrieved cell has nowhere to record where it
-came from once it lands in the notebook.
+The scientific skills now require the two-call `ground` cycle before every
+analysis cell, the source header survives into Marimo, and S009 audits citations
+per cell. `ground` also checks C004/C006/C008 before writing and preflights the
+exact proposed code for native-plot reinvention.
 
-That is the whole project. Everything below serves it.
+The held-out Kang benchmark now measures the outcome. Its first frozen result is
+44.4% call precision and recall with leakage blocked; the dominant error is API
+drift in the eligible corpus. That makes corpus freshness and package docs the
+next concrete depth problem rather than an assumed one.
 
 ---
 

@@ -213,6 +213,7 @@ class GroundingResult(BaseModel):
     analysis_mode: ResolvedMode
     backend: str = ""
     design: GroundingDesign = Field(default_factory=GroundingDesign)
+    excluded_reference_ids: list[str] = Field(default_factory=list)
     api_usage: list[GroundedCode] = Field(default_factory=list)
     in_practice: list[GroundedCode] = Field(default_factory=list)
     candidate_reviewed: bool = False
@@ -294,6 +295,7 @@ def ground(
     modalities: Sequence[str] | None = None,
     top_k: int = 5,
     analysis_mode: GroundingMode = "auto",
+    exclude_reference_ids: Sequence[str] | None = None,
     candidate_code: str | None = None,
     usage: CorpusUsage | None = None,
     signatures: Mapping[str, Sequence[str]] | None = None,
@@ -309,22 +311,36 @@ def ground(
     Pass ``candidate_code`` on the second call, after adapting one result in
     working memory but before creating the notebook cell. That review fails
     closed when the evidence needed to settle possible reinvention is missing.
+
+    ``exclude_reference_ids`` is an exact, stable-id denylist applied before a
+    reference is read. It exists for held-out evaluation: excluding only the
+    answer notebook is insufficient when several notebooks analyse the same
+    dataset.
     """
     task = query.strip()
     proposed = (candidate_code or "").strip()
     resolved_mode = _resolve_mode(task, analysis_mode)
     current_design = design or GroundingDesign()
     limit = max(1, min(int(top_k), 8))
+    excluded = frozenset(
+        reference_id.strip()
+        for reference_id in (exclude_reference_ids or ())
+        if reference_id.strip()
+    )
+    # Backfill references hidden by a benchmark denylist without making an
+    # ordinary grounding call wider or unbounded.
+    search_limit = min(200, max(8, limit * 3) + len(excluded))
     search = index.search_workflows(
         task,
         packages=packages,
         modalities=modalities,
-        top_k=max(8, limit * 3),
+        top_k=search_limit,
     )
+    eligible_hits = [hit for hit in search.hits if hit.reference_id not in excluded]
 
     candidates: list[_Candidate] = []
     read_failures: list[str] = []
-    for rank, hit in enumerate(search.hits):
+    for rank, hit in enumerate(eligible_hits):
         try:
             reference = index.get_reference(hit.reference_id, with_provenance=False)
         except CellimoError as exc:
@@ -441,6 +457,8 @@ def ground(
         or (bool(proposed) and not candidate_reviewed)
     )
     notes = [part for part in [search.note] if part]
+    if excluded:
+        notes.append(f"{len(excluded)} reference(s) excluded before reading")
     if not current_design.available:
         notes.append("no Cellimo project was found; design checks were not applied")
     if not candidates:
@@ -465,6 +483,7 @@ def ground(
         analysis_mode=resolved_mode,
         backend=search.backend,
         design=current_design,
+        excluded_reference_ids=sorted(excluded),
         api_usage=api,
         in_practice=practice,
         candidate_reviewed=candidate_reviewed,

@@ -171,6 +171,37 @@ def test_no_precedent_requires_a_user_decision(fixture_index: Path) -> None:
     assert "stop and ask the user" in result.note
 
 
+def test_excluded_references_are_never_read_or_returned(tmp_path: Path) -> None:
+    workflows = [
+        _workflow(
+            "answer_key",
+            title="Quality-control answer key",
+            summary="Quality control filter cells by genes",
+            repository="lab/held-out",
+            path="answer.ipynb",
+            sections=[_section("0", "sc.pp.filter_cells(adata, min_genes=200)")],
+        ),
+        _workflow(
+            "eligible",
+            title="Quality-control tutorial",
+            summary="Quality control filter cells by genes",
+            repository="scverse/tutorials",
+            path="qc.ipynb",
+            sections=[_section("0", "sc.pp.filter_cells(adata, min_genes=100)")],
+        ),
+    ]
+
+    result = ground(
+        _index(tmp_path, workflows),
+        "quality control filter cells by genes",
+        exclude_reference_ids=["notebook:answer_key"],
+    )
+
+    assert result.excluded_reference_ids == ["notebook:answer_key"]
+    assert [item.reference_id for item in result.examples] == ["notebook:eligible"]
+    assert "excluded before reading" in result.note
+
+
 def test_per_cell_confirmatory_de_is_withheld_for_a_multi_donor_design(
     tmp_path: Path,
 ) -> None:

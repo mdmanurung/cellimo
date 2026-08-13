@@ -18,7 +18,7 @@ five tools, all of them read-only queries:
 
 | tool | arguments | returns |
 | --- | --- | --- |
-| `ground` | `query`, `packages`, `modalities`, `top_k=5`, `analysis_mode=auto`, `candidate_code` | cited sections split into `api_usage` and `in_practice`, design findings, and proposed-code preflight |
+| `ground` | `query`, `packages`, `modalities`, `top_k=5`, `analysis_mode=auto`, `exclude_reference_ids`, `candidate_code` | cited sections split into `api_usage` and `in_practice`, design findings, and proposed-code preflight |
 | `search_workflows` | `query`, `packages`, `modalities`, `top_k=8` | ranked notebooks |
 | `search_documentation` | `query`, `packages`, `top_k=8` | ranked API/doc sections |
 | `get_reference` | `reference_id`, `section_ids` | the exact source, with a content hash |
@@ -64,6 +64,10 @@ show how APIs are used in practice. When project design metadata is available,
 on corrected values (`C006`), and pooled multi-sample QC (`C008`). If nothing
 relevant and checked remains, `needs_user_decision` is true. The caller must
 stop and ask the user rather than fill the gap from memory.
+
+For held-out evaluation, pass every notebook derived from the benchmark dataset
+as `exclude_reference_ids`. The denylist is applied before Cellimo reads a
+reference, is returned in the result, and is exact by stable reference id.
 
 Grounding has a required two-call cycle because Cellimo cannot inspect a cell
 that has not been proposed yet:

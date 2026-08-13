@@ -145,6 +145,8 @@ packages = ["src/cellimo"]
 include = [
   "src/cellimo",
   "plugin",
+  "benchmarks",
+  "tools",
   "tests",
   "docs",
   "README.md",

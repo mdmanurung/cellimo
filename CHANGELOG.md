@@ -58,6 +58,14 @@ listed that is not.
   recognised C004/C006/C008 design errors before a notebook cell is written.
   Its `candidate_code` preflight also checks proposed custom AnnData plots
   against corpus usage and signatures from the project interpreter.
+- `ground(exclude_reference_ids=...)` applies an exact denylist before reading
+  references, so evaluation can exclude every notebook derived from a held-out
+  dataset rather than only the answer notebook.
+- A corpus call table measures usage across all 2,845 stored notebooks, and the
+  held-out call benchmark extracts both candidate and expert calls with ASTs,
+  verifies dataset-level leakage controls and citations, and reports exact
+  precision/recall. The first frozen Kang scGen baseline is included under
+  `benchmarks/`.
 - Stable reference identifiers in two namespaces (`notebook:`, `chunk:`), never
   derived from result position.
 - Two backends: `chroma` (KAI's published index) and `lexical` (stdlib BM25 over
@@ -110,8 +118,12 @@ listed that is not.
 ### Fixed (found by installing it for real, and by the second-pass audit)
 
 Installing Cellimo as a `uv tool` — the documented path — exposed a cluster of
-defects around the two-runtime split. All four were live:
+defects around the two-runtime split. All were reproduced:
 
+- **`marimo check` could idle until Cellimo's timeout** on selector environments
+  that lose an asyncio worker-thread wakeup. Cellimo now keeps a bounded timer
+  in the Marimo child during linting and executor shutdown; no Marimo source or
+  project process is patched.
 - **`doctor` reported Marimo as a hard failure** for every correctly-configured
   user, because it searched only next to its own interpreter. It now searches the
   project runtime first, and treats a missing Marimo outside a project as a
