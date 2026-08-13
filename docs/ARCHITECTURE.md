@@ -2,7 +2,9 @@
 
 Cellimo exists because three capable systems already exist and none of them
 should be rebuilt: a reasoning agent, a reactive notebook, and an index of
-published analyses. Cellimo is the connective tissue and the discipline.
+published analyses. Cellimo connects them into one continuous analysis
+experience and supplies the discipline that makes the result resumable,
+inspectable and defensible.
 
 ## Who owns what
 
@@ -32,6 +34,14 @@ Cellimo router + focused skills           what to do next, and what never to do
 
 Cellimo duplicates none of Marimo's or marimo-pair's responsibilities. It has no
 kernel, no execution queue, no notebook editor and no message protocol.
+
+From the user's perspective those boundaries form one loop: ask for an
+objective, inspect the cell and result that appear in Marimo, make any necessary
+scientific decision, and continue. Underneath, the agent reads live state,
+grounds and preflights the cell, marimo-pair runs it, and Cellimo records and
+validates the outcome. The experience is seamless because state passes through
+the loop; the implementation stays explicit so no hidden pipeline has to be
+trusted.
 
 ## One agent, no exceptions
 

@@ -1,11 +1,17 @@
 # Cellimo
 
-**Agentic, reproducible single-cell analysis in Marimo.**
+**Seamless, grounded single-cell analysis in a live Marimo notebook.**
 
-Cellimo gives Codex or Claude Code the scaffolding to do single-cell analysis
-the way a careful colleague would: in a live notebook you can see, with the
-experimental design settled before any p-value is computed, and with every
-artifact, decision and reference written down as it happens.
+Tell Codex or Claude Code what you want to learn from a single-cell dataset and
+watch the analysis take shape in the notebook you already have open. The agent
+attaches to the live kernel, grounds one scientific step at a time in published
+workflows, writes and runs the cell, reads the result, and continues from the
+state you can see.
+
+Seamless does not mean hidden. The code, plots, tables, decisions, references
+and checks stay together in `analysis.py`; the experimental design is settled
+before any p-value is computed; and every artifact carries its lineage back to
+the source data.
 
 Cellimo is not an agent. It never calls a language model, has no provider
 configuration and needs no API key. The agent is Codex or Claude Code; Marimo
@@ -27,17 +33,40 @@ cellimo install --agents auto
 cellimo start data/dataset.h5ad --profile scanpy
 ```
 
-That will, in order: detect Codex and/or Claude Code, register the Cellimo
-plugin and skills with each, configure the read-only `cellimo-knowledge` MCP
-server, create a project around your `.h5ad`, generate `analysis.py`, and start
-Marimo in a session the agent can attach to through marimo-pair.
+That leaves you with a live, discoverable Marimo notebook around your dataset.
+Under the hood, Cellimo detects Codex and/or Claude Code, registers the plugin
+and read-only knowledge server, creates the project, generates `analysis.py`,
+and starts the session the agent will use.
 
 Then ask the agent, in its own window:
 
 > Pair with my marimo notebook and take me through quality control.
 
+Continue in the same conversation and notebook:
+
+> Show me which samples drive that threshold, then continue to donor-aware
+> differential expression.
+
 You never configure an LLM provider, Ollama, a VS Code extension, a Jupyter
 kernel service, a notebook-execution MCP, kernel identifiers, or MCP JSON.
+
+## One continuous analysis loop
+
+For each scientific objective, the agent:
+
+1. inspects the recorded project and the actual live notebook state;
+2. retrieves the few published workflow cells that matter;
+3. adapts and preflights one visible cell against your data and design;
+4. creates and runs it in Marimo, then reads the real output or traceback;
+5. records the parameters, decisions, references and resulting artifacts; and
+6. continues from that state when you ask the next question.
+
+If a cell fails, the traceback becomes the input to the next grounded fix. If
+the session is interrupted, the next request starts by refreshing the manifest
+and reading the notebook rather than reconstructing the analysis from chat.
+The flow pauses when a scientific choice belongs to you — approving the
+experimental design, resolving ambiguous metadata or accepting an exception —
+and then resumes in the same place.
 
 ## Architecture
 
@@ -132,7 +161,7 @@ The same skill tree serves both platforms. `plugin/plugin.toml` is the single
 source of truth; `.claude-plugin/` and `.codex-plugin/` metadata is generated
 from it, and a test fails if the two ever disagree.
 
-## The Marimo workflow
+## The live notebook
 
 `cellimo start` runs:
 
@@ -140,10 +169,12 @@ from it, and a test fails if the two ever disagree.
 marimo edit analysis.py --host 127.0.0.1 --no-token
 ```
 
-`--no-token` is what makes the session discoverable: only untokenised servers
-register themselves in Marimo's server registry, which is how marimo-pair finds
-them. Anyone who can reach that port can drive the kernel, which is why the bind
-address is loopback. See [docs/SAFETY.md](docs/SAFETY.md).
+The agent attaches through marimo-pair and works against the kernel state you
+see. Scratchpad experiments stay temporary; cells become durable only when the
+agent deliberately adds them to `analysis.py`. The session is discoverable
+through Marimo's own registry and binds to loopback because anyone who can
+reach it can drive the kernel. See [docs/MARIMO.md](docs/MARIMO.md) and
+[docs/SAFETY.md](docs/SAFETY.md).
 
 The generated `analysis.py` has eleven sections: project setup, header, dataset
 audit, design declaration, analysis plan, QC configuration, QC execution gate,
@@ -151,7 +182,9 @@ QC diagnostics, artifacts and lineage, provenance summary, scientific
 validation. Expensive stages sit behind `mo.ui.run_button` so nothing runs by
 accident, and inferential analysis is blocked until the design is approved.
 
-There is no hidden pipeline. What the notebook shows is what ran.
+There is no hidden pipeline or separate agent transcript to translate into a
+method later. What the notebook shows is what ran, and it is also where the
+next step appears.
 
 ## Project structure
 
@@ -207,10 +240,13 @@ with project.stage("post_qc", params={"min_genes": 200}) as stage:
 The scientific transformation stays in the notebook, visible. Cellimo records
 what it did.
 
-## Retrieval
+## Grounding inside the flow
 
-`cellimo-knowledge` is a read-only MCP server over an index of published
-single-cell analysis notebooks, inherited from KAI:
+Before a scientific cell appears, the agent uses `cellimo-knowledge`, a
+read-only MCP server over an index of published single-cell analysis notebooks
+inherited from KAI. The grounding cycle selects relevant source cells, keeps
+their citations attached to the adapted code, and preflights the exact proposed
+cell before Marimo runs it:
 
 | tool | returns |
 | --- | --- |
@@ -237,7 +273,7 @@ and has no modality field. `index_status` says so, and `search_documentation`
 returns an empty result with an explanation rather than pretending. See
 [docs/RETRIEVAL.md](docs/RETRIEVAL.md).
 
-## Scientific safeguards
+## Safeguards inside the flow
 
 `cellimo check` validates a project structurally and scientifically. Scientific
 claims are checked against structured provenance; S009 additionally audits
@@ -344,10 +380,12 @@ pip install -e '.[docs]'
 make -C docs html          # -> docs/_build/html/index.html
 ```
 
-`docs/tutorial.ipynb` is a real analysis of a published dataset — Kang et al.
-2018, eight lupus donors, control vs interferon-β — taken from raw counts to
-pseudobulk differential expression, and ending with `cellimo check` refusing the
-same comparison run per cell.
+`docs/tutorial.ipynb` is a vignette of the seamless live-analysis experience,
+using a real published dataset — Kang et al. 2018, eight lupus donors, control
+vs interferon-β. It follows one plain-language objective from audit to
+pseudobulk differential expression, keeps every decision and result visible,
+and ends with `cellimo check` immediately refusing the same comparison run per
+cell.
 
 Because it downloads real data and runs a full analysis, it is executed
 **locally** and its outputs are committed:

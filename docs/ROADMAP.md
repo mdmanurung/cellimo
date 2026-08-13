@@ -1,8 +1,14 @@
-# Roadmap — a Marimo-native, grounded Claude for single-cell science
+# Roadmap — seamless, grounded single-cell analysis
 
-The goal: you work in a Marimo notebook. Claude Code is paired to the live
-kernel. You ask for an analysis in plain language and cells appear, run, and
-carry the published source they were adapted from.
+The goal: you work in a live Marimo notebook and ask for the next scientific
+objective in plain language. Codex or Claude Code carries the project and
+kernel state across steps; grounded cells appear, run, show their outputs and
+retain the published sources they were adapted from. You inspect the result,
+make the decisions that belong to you, and continue in the same thread.
+
+“Seamless” names the user experience, not an opaque pipeline. The method stays
+visible in the notebook, and the boundaries between the agent, Marimo,
+marimo-pair, retrieval and Cellimo remain explicit and testable.
 
 **Most of that already exists.** The gap is narrower than it looks.
 
@@ -46,7 +52,7 @@ next concrete depth problem rather than an assumed one.
 
 ---
 
-## v0.2 — ground the cells marimo-pair writes
+## v0.2 — grounded cells in the live loop (complete)
 
 - **Section selection in `ground(query)`.** The load-bearing piece. Search
   returns no `section_ids` and headings are almost all `'main'`, so
@@ -61,7 +67,9 @@ next concrete depth problem rather than an assumed one.
 - **Rewrite the three scientific skills** so the loop is:
   `ground` → adapt to the user's columns → `create_cell` → run → read status.
   Three markdown files; the highest-leverage change in this roadmap.
-- **Delete the manual ledger** — eleven API calls become zero.
+- **Delete the manual citation ledger** — source headers travel with cells, so
+  the agent does not translate every adapted section into a separate reference
+  entry by hand.
 
 **Done when** "take me through QC on these 8 donors" produces cells in your
 notebook that ran, cite real published notebooks, and `cellimo check` names the
@@ -69,9 +77,10 @@ ones that don't.
 
 That is the goal, reached. Everything after is depth.
 
-## v0.3 — close the feedback loop
+## v0.3 — make continuation resilient
 
-Use the half of marimo-pair the skills currently ignore.
+Keep the analysis moving when reality differs from the first proposal, without
+leaving the notebook or guessing past an error.
 
 - A grounded cell errors → the agent reads the cell status → **re-retrieves**
   against the error rather than guessing a fix.
@@ -96,18 +105,21 @@ is noisy.
 
 ## Risks, in the order they bite
 
-1. **Section selection.** If the agent still receives 93 cells, nothing
-   downstream feels seamless. This is the one unproven piece.
-2. **Search quality.** Must improve before the experience is trustworthy.
-3. **Corpus staleness.** KAI is a 2025-09 snapshot; scanpy's API moves.
-4. **ChromaDB on network filesystems.** Its sqlite index fails with "disk I/O
+1. **Error recovery.** Until a failing cell is re-grounded from its real
+   traceback, the continuous experience can still collapse into manual repair.
+2. **Search quality.** Irrelevant evidence makes every downstream step feel
+   heavier and less trustworthy.
+3. **Corpus staleness.** KAI is a 2025-09 snapshot; Scanpy's API moves.
+4. **ChromaDB on network filesystems.** Its SQLite index fails with "disk I/O
    error" on NFS — anyone on an HPC cluster hits this. `CELLIMO_INDEX_DIR` is
    the escape hatch and should be documented loudly. `install.py` should use
    `certifi` so downloads work behind a corporate CA.
 
-## What gets left behind
+## What moves into the background
 
-The 0.1.0 provenance ledger, nineteen of twenty-one checks, the manual recording
-API. The Marimo/marimo-pair boundary is unchanged — it was never the problem,
-and it is now the load-bearing part. The Kang tutorial gets rewritten once the
-API settles.
+The 0.1.0 provenance ledger, the wider check catalogue and the recording API
+remain implemented, but they are supporting infrastructure rather than the
+lead story. The agent uses them while the user stays with the live notebook and
+the scientific result. The Marimo/marimo-pair boundary is unchanged and remains
+load-bearing; the Kang vignette now presents the experience from question to
+result while keeping those safeguards visible.
